@@ -21,7 +21,8 @@ pub struct State {
   priv frame : Int // monotonically increasing frame counter
   priv scroll : Int // horizontal world scroll offset in pixels
   priv speed : Speed
-  priv walker_frame : Int // walker animation frame 0..=3
+  priv animation_frames : Int // active simulation frames in the walk cycle
+  priv walker_frame : Int // fairy animation frame 0..=5
   priv paused : Bool
   priv song : @music.Song
   priv walker_sheet : @graphics.SpriteSheet // built once in State::new
@@ -29,7 +30,7 @@ pub struct State {
 }
 
 ///|
-/// Builds one placeholder note of the given duration in song ticks
+/// Builds one note of the given duration in song ticks
 /// (4 ticks per eighth note at the default v0.1 resolution).
 fn note(midi~ : Int, ticks~ : Int) -> @music.Note {
   { pitch: @music.Pitch::from_midi(midi~), ticks, }
@@ -106,10 +107,11 @@ pub fn State::new() -> State {
     frame: 0,
     scroll: 0,
     speed: { level: 1, },
+    animation_frames: 0,
     walker_frame: 0,
     paused: false,
     song,
-    walker_sheet: build_walker_sheet(),
+    walker_sheet: build_fairy_walk_right_sheet(),
     tree_sheets: [
       build_tree_sheet(width=8, height=14),
       build_tree_sheet(width=10, height=16),
@@ -137,14 +139,13 @@ pub fn State::scroll(self : State) -> Int {
 }
 
 ///|
-/// Walker animation frame, always 0..=3.
+/// Fairy animation frame, always 0..=5.
 pub fn State::walker_frame(self : State) -> Int {
   self.walker_frame
 }
 
 ///|
-/// The walker's four-frame sprite sheet: four 12x20 placeholder poses
-/// generated procedurally, one weight-shift beat each.
+/// The six-frame 28x32 right-facing fairy sprite sheet compiled from source art.
 pub fn State::walker_sheet(self : State) -> @graphics.SpriteSheet {
   self.walker_sheet
 }

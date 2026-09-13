@@ -21,6 +21,11 @@ jobs:
           test ! -e moon.work
           moon update
 
+      - name: Verify generated sprite source
+        run: |
+          ./tools/compile_assets.sh
+          git diff --exit-code
+
       - name: Check and test native
         run: |
           moon check --target native --output-json

@@ -1,6 +1,5 @@
 # AI Passport application template
 
-This repository is a GitHub Template for AI Passport applications. Forest Walk (`src/forest_walk`) is the starter and reference application: a 120×160 logical scene with a scrolling forest, a four-frame walker, button-controlled speed and pause, a battery percentage HUD, and a four-voice showcase song. The scene uses the reusable [AI Passport SDK](https://github.com/colmugx/ai-passport.mbt) through its public MoonBit APIs.
 
 `moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.1`. Run `moon update` to resolve it. No local SDK workspace is needed to build or test this template, including in CI.
 
@@ -47,7 +46,17 @@ Forest Walk State::draw
   -> CSS integer scaling to 480x640 with image-rendering: pixelated
 ```
 
-The application updates at a fixed 30 Hz simulation rate driven by `requestAnimationFrame` (elapsed time is accumulated and capped after tab suspension); drawing happens every animation frame. Keyboard events map `ArrowUp`/`ArrowDown`/`Space`/`Enter` to SDK `@input` buttons with press/release edges; `InputState::advance` is called exactly once per simulation step. An independent WebAudio scheduler renders 512-sample, 16 kHz mono PCM blocks from the SDK `Player` and keeps a short playback queue. Once sound starts, the walk cycle uses the beat at the WebAudio playback head, derived from elapsed audio-context sample time and the song tempo. It does not use the Player's render-ahead beat. Pausing or hiding the tab suspends WebAudio so the audible timeline stays frozen.
+The application updates at a fixed 30 Hz simulation rate driven by `requestAnimationFrame` (elapsed time is accumulated and capped after tab suspension); drawing happens every animation frame. Keyboard events map `ArrowUp`/`ArrowDown`/`Space`/`Enter` to SDK `@input` buttons with press/release edges; `InputState::advance` is called exactly once per simulation step. The fairy advances one of its six poses every four active simulation frames, completing a walk cycle in about 0.8 seconds. An independent WebAudio scheduler renders 512-sample, 16 kHz mono PCM blocks from the SDK `Player` and keeps a short playback queue. Once sound starts, the runtime supplies the beat at the WebAudio playback head, derived from elapsed audio-context sample time and the song tempo; it does not use the Player's render-ahead beat. Pausing or hiding the tab suspends WebAudio so the audible timeline stays frozen.
+
+## Fairy sprite asset
+
+The committed source art is `assets/forest_walk/fairy_walk_right.png` (six horizontal 28×32 frames). To regenerate the compact MoonBit palette and pixel indices after editing the PNG, run:
+
+```sh
+./tools/compile_assets.sh
+```
+
+The compiler uses Python 3's standard library and rejects partially transparent pixels because the SDK sprite sheet supports only opaque or fully transparent colors. The generated source is committed at `src/forest_walk/generated/fairy_walk_right.mbt`; browser and future device builds compile that source and do not load the PNG at runtime.
 
 ## Develop
 
@@ -55,6 +64,7 @@ Install the MoonBit toolchain, then run:
 
 ```sh
 moon update
+./tools/compile_assets.sh
 moon check --target native --output-json
 moon test --target native --output-json
 moon check --target js --output-json
@@ -65,4 +75,4 @@ moon build --target js
 git diff --exit-code
 ```
 
-The last command checks that generated API information and formatting are committed. If you create your own application from this GitHub Template, you may rename the MoonBit module in `moon.mod` before publishing it under your own name.
+The last command checks that generated sprite source, API information, and formatting are committed. If you create your own application from this GitHub Template, you may rename the MoonBit module in `moon.mod` before publishing it under your own name.

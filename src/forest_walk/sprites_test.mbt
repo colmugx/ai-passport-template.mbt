@@ -1,16 +1,40 @@
 ///|
-test "walker sheet exposes four 12x20 frames and every frame draws" {
+test "fairy sheet exposes six 28x32 frames and every frame draws" {
   let sheet = State::new().walker_sheet()
-  inspect(sheet.frame_count(), content="4")
-  inspect(sheet.frame_width(), content="12")
-  inspect(sheet.frame_height(), content="20")
+  inspect(sheet.frame_count(), content="6")
+  inspect(sheet.frame_width(), content="28")
+  inspect(sheet.frame_height(), content="32")
   // Every frame renders cleanly on a plain canvas.
   let canvas = @graphics.Canvas::new(width=64, height=80)
-  for frame in 0..<4 {
-    canvas.sprite(sheet~, frame~, x=26, y=44)
+  for frame in 0..<6 {
+    canvas.sprite(sheet~, frame~, x=26, y=40)
   }
-  // Out-of-range frames are silent no-ops.
-  canvas.sprite(sheet~, frame=4, x=26, y=44)
+}
+
+///|
+test "fairy sheet keeps transparent pixels transparent in all six frames" {
+  let sheet = State::new().walker_sheet()
+  let background = @core.Color::rgb(r=0, g=255, b=0).to_rgb565()
+  for frame in 0..<6 {
+    let canvas = @graphics.Canvas::new(width=28, height=32)
+    canvas.clear(color=@core.Color::rgb(r=0, g=255, b=0))
+    canvas.sprite(sheet~, frame~, x=0, y=0)
+    let mut transparent = 0
+    let mut opaque_count = 0
+    for y in 0..<32 {
+      let row = FixedArray::make(28, 0)
+      assert_eq(canvas.frame_view().copy_rgb565_row(y~, out=row), 28)
+      for pixel in row {
+        if pixel == background {
+          transparent += 1
+        } else {
+          opaque_count += 1
+        }
+      }
+    }
+    assert_true(transparent > 0)
+    assert_true(opaque_count > 0)
+  }
 }
 
 ///|

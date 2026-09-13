@@ -1,0 +1,17 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/ai-passport-template/forest_walk/generated"
+
+import {
+  "colmugx/ai-passport/graphics",
+}
+
+// Values
+pub fn build_fairy_walk_right_sheet() -> @graphics.SpriteSheet
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

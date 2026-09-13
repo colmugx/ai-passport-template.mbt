@@ -14,8 +14,8 @@ fn battery_label(battery_percent : Int?) -> String {
 ///|
 /// Draws the current scene: a soft sky, a mist band, one-frame tree sprites
 /// scrolling with `scroll` and wrapping across `canvas width + margin`, a
-/// ground strip along the bottom and the four-frame walker sprite fixed
-/// near x=32 with its feet on the ground line. The walker pose index is
+/// ground strip along the bottom and the six-frame fairy sprite fixed
+/// near x=26 with its feet on the ground line. The fairy pose index is
 /// `walker_frame`, advanced by `update` while moving and frozen while
 /// paused. Every dimension derives from `canvas.width()` /
 /// `canvas.height()`; sprites and rectangles clip silently at the canvas
@@ -70,12 +70,12 @@ pub fn State::draw(
       canvas.pixel(x~, y=ground_y, color=tuft)
     }
   }
-  // The walker stands on the ground strip, horizontally fixed near x=32.
+  // The fairy stands on the ground strip at its native 28x32 resolution.
   let sheet = self.walker_sheet
   canvas.sprite(
     sheet~,
     frame=self.walker_frame,
-    x=32,
+    x=26,
     y=(ground_y - sheet.frame_height()).max(0),
   )
   let battery_text = battery_label(battery_percent)

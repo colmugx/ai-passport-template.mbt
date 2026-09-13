@@ -1,14 +1,14 @@
 ///|
-test "draw runs clean on a small canvas, the logical canvas and a walker-sized canvas" {
+test "draw runs clean on a small canvas, the logical canvas and a fairy-sized canvas" {
   let state = State::new()
   state.draw(
     canvas=@graphics.Canvas::new(width=64, height=80),
     battery_percent=None,
   )
   state.draw(canvas=@graphics.Canvas::logical(), battery_percent=Some(82))
-  // The minimum interesting canvas: exactly walker-sized.
+  // The minimum interesting canvas: exactly fairy-sized.
   state.draw(
-    canvas=@graphics.Canvas::new(width=12, height=20),
+    canvas=@graphics.Canvas::new(width=28, height=32),
     battery_percent=None,
   )
 }

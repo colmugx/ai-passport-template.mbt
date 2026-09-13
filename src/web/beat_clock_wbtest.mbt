@@ -16,7 +16,7 @@ test "BeatClock floors elapsed time into whole beats" {
   // Negative deltas are ignored.
   clock.tick(-beat_seconds(76))
   inspect(clock.beat(), content="1")
-  // Four beats in: the walk cycle wraps its pose with beat % 4.
+  // Four beats in: the clock reports the elapsed musical beat directly.
   clock.tick(beat_seconds(76) * 3)
   inspect(clock.beat(), content="4")
 }

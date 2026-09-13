@@ -1,34 +1,4 @@
-// Whitebox tests: pin the procedural sprite builders' contracts (private
-// pixel generation and the private tree sheets).
-
-///|
-test "the four walker frames are pairwise distinct" {
-  let frames = [
-    walker_frame_pixels(phase=0),
-    walker_frame_pixels(phase=1),
-    walker_frame_pixels(phase=2),
-    walker_frame_pixels(phase=3),
-  ]
-  for a in 0..<4 {
-    for b in (a + 1)..<4 {
-      assert_true(frames[a] != frames[b], msg="frames \{a} and \{b} identical")
-    }
-  }
-}
-
-///|
-test "every walker frame is a full 12x20 grid with transparent margins" {
-  for phase in 0..<4 {
-    let pixels = walker_frame_pixels(phase~)
-    assert_eq(pixels.length(), 12 * 20)
-    // The silhouette spans the full height (crown at row 0, feet at row
-    // 19) but the outermost columns stay transparent on every pose.
-    for y in 0..<20 {
-      assert_true(pixels[y * 12] is None, msg="left border painted")
-      assert_true(pixels[y * 12 + 11] is None, msg="right border painted")
-    }
-  }
-}
+// Whitebox tests pin the procedural tree builders' private contracts.
 
 ///|
 test "tree sheets are three private one-frame sheets in distinct sizes" {

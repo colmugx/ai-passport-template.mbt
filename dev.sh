@@ -21,12 +21,12 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 # 1. Build the MoonBit JS target (the browser entry package is src/web).
-moon build --target js
+moon build --target js --release
 
 # 2. Assemble the browser bundle into web/dist (transient build output,
 #    never committed).
 mkdir -p web/dist
-cp _build/js/debug/build/web/web.js web/dist/web.js
+cp _build/js/release/build/web/web.js web/dist/web.js
 
 # 3. Serve the browser shell; open the printed URL.
 echo
