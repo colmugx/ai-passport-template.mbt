@@ -5,7 +5,7 @@ pub(all) struct Speed {
 }
 
 ///|
-/// The standing-still speed used when scene state is first created.
+/// Standing-still speed, reached by pressing Down from the starter speed.
 pub fn Speed::zero() -> Speed {
   { level: 0, }
 }
@@ -15,19 +15,14 @@ pub fn Speed::zero() -> Speed {
 ///
 /// The scene fields are immutable from the outside: `State::update` returns a
 /// new `State` instead of rewriting them, so a frame can be redrawn safely.
-/// The one exception is the music transport (`player`): it is one long-lived
-/// object shared by every `State` value, advanced in place by `update` while
-/// unpaused (it renders each frame's audio through the SDK `Player`, whose
-/// sample-accurate transport owns the music clock) and observable through
-/// `State::player()`. Fields are private; read them through the accessors.
+/// The runtime owns the mutable audio player and supplies its beat snapshot
+/// to `update`. Fields are private; read them through the accessors.
 pub struct State {
   priv frame : Int // monotonically increasing frame counter
   priv scroll : Int // horizontal world scroll offset in pixels
   priv speed : Speed
   priv walker_frame : Int // walker animation frame 0..=3
   priv paused : Bool
-  priv player : @audio.Player // shared transport: owns the music clock
-  priv scratch : FixedArray[Int] // one frame of PCM, reused every update
   priv song : @music.Song
   priv walker_sheet : @graphics.SpriteSheet // built once in State::new
   priv tree_sheets : Array[@graphics.SpriteSheet] // built once in State::new
@@ -57,8 +52,8 @@ fn showcase_track(
 }
 
 ///|
-/// Authors the four showcase tracks (docs/MUSIC.md roles: Celesta, Woodwind
-/// Lead, Lyrical Strings, Low Strings). Package private so the whitebox
+/// Authors the four showcase tracks (Celesta, Woodwind Lead, Lyrical Strings,
+/// Low Strings). Package private so the whitebox
 /// tests verify the exact authoring data the song snapshot is built from.
 fn showcase_tracks() -> Array[@music.Track] {
   [
@@ -86,8 +81,8 @@ fn showcase_tracks() -> Array[@music.Track] {
 }
 
 ///|
-/// Builds the four-voice Forest Walk showcase song (docs/MUSIC.md roles:
-/// Celesta, Woodwind Lead, Lyrical Strings, Low Strings over 6/8) as an
+/// Builds the four-voice Forest Walk showcase song (Celesta, Woodwind Lead,
+/// Lyrical Strings, Low Strings over 6/8) as an
 /// immutable SDK snapshot. Package private so the whitebox tests verify the
 /// same snapshot the scene plays. The four-voice cap holds by construction,
 /// so a violation would be a bug and aborts loudly instead of being
@@ -103,22 +98,16 @@ fn showcase_song() -> @music.Song {
 }
 
 ///|
-/// Creates the initial scene: standing still, not paused, frame counter and
-/// beat counter at zero, the four-voice showcase song and its transport
-/// built once from that song at `@audio.SAMPLE_RATE`.
+/// Creates the initial scene walking at speed 1 and unpaused. The runtime
+/// constructs its own player from `song()` and owns audio callback timing.
 pub fn State::new() -> State {
   let song = showcase_song()
-  // The transport is built once from the finished song: the player owns the
-  // clock (76 dotted-quarter BPM, 4 ticks per eighth) and loops the whole
-  // song, driving the synth from the sequencer's note starts.
   {
     frame: 0,
     scroll: 0,
-    speed: Speed::zero(),
+    speed: { level: 1, },
     walker_frame: 0,
     paused: false,
-    player: @audio.Player::new(song~),
-    scratch: FixedArray::make(FRAME_SAMPLES, 0),
     song,
     walker_sheet: build_walker_sheet(),
     tree_sheets: [
@@ -173,19 +162,3 @@ pub fn State::song(self : State) -> @music.Song {
 }
 
 ///|
-/// The music transport playing the showcase song: one long-lived SDK
-/// `Player` shared by every `State` value. `State::update` renders each
-/// unpaused frame's audio through it; a device backend would instead call
-/// `player.render` from its audio callback with real sample counts.
-pub fn State::player(self : State) -> @audio.Player {
-  self.player
-}
-
-///|
-/// Dotted-quarter beat counter: one increment per large 6/8 beat (every
-/// `3 * ticks_per_eighth` song ticks of transport time), per
-/// docs/SHOWCASE.md, counted by the player's transport. It advances only
-/// while the scene is unpaused and freezes with the music when paused.
-pub fn State::beat(self : State) -> Int {
-  self.player.beat()
-}

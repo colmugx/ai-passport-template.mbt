@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  moonbit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MoonBit
+        run: |
+          set -euo pipefail
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve published SDK
+        run: |
+          test ! -e moon.work
+          moon update
+
+      - name: Check and test native
+        run: |
+          moon check --target native --output-json
+          moon test --target native --output-json
+
+      - name: Check and test JavaScript
+        run: |
+          moon check --target js --output-json
+          moon test --target js --output-json
+
+      - name: Check generated API and formatting
+        run: |
+          moon info
+          moon fmt
+          git diff --exit-code

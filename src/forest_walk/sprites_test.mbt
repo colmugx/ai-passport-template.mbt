@@ -18,29 +18,35 @@ test "draw survives a full tree wrap while walking on both canvases" {
   let input = @input.InputState::new()
   // Three Up edges ramp the speed to its cap.
   input.press(@input.Up)
-  let mut s = State::new().update(input~)
+  let mut s = State::new().update(input~, beat=0)
   input.advance()
   input.press(@input.Up)
-  s = s.update(input~)
+  s = s.update(input~, beat=0)
   input.advance()
   input.press(@input.Up)
-  s = s.update(input~)
+  s = s.update(input~, beat=0)
   input.advance()
   assert_eq(s.speed().level, 3)
   // Walk well past one wrap period (canvas width plus the 24 px margin):
   // sixty frames at speed 3 scrolls 180+ pixels.
   for _ in 0..<60 {
-    s = s.update(input~)
+    s = s.update(input~, beat=0)
     input.advance()
   }
   assert_true(s.scroll() > 144)
-  s.draw(canvas=@graphics.Canvas::logical())
-  s.draw(canvas=@graphics.Canvas::new(width=64, height=80))
+  s.draw(canvas=@graphics.Canvas::logical(), battery_percent=Some(82))
+  s.draw(
+    canvas=@graphics.Canvas::new(width=64, height=80),
+    battery_percent=None,
+  )
 }
 
 ///|
 test "draw with a fresh state succeeds on the logical and a 64x80 canvas" {
   let state = State::new()
-  state.draw(canvas=@graphics.Canvas::logical())
-  state.draw(canvas=@graphics.Canvas::new(width=64, height=80))
+  state.draw(canvas=@graphics.Canvas::logical(), battery_percent=Some(82))
+  state.draw(
+    canvas=@graphics.Canvas::new(width=64, height=80),
+    battery_percent=None,
+  )
 }

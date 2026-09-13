@@ -1,7 +1,7 @@
 ///|
-test "State::new starts standing still, unpaused and with a four-voice 6/8 song" {
+test "State::new starts walking, unpaused and with a four-voice 6/8 song" {
   let state = State::new()
-  inspect(state.speed().level, content="0")
+  inspect(state.speed().level, content="1")
   inspect(state.paused(), content="false")
   inspect(state.frame(), content="0")
   inspect(state.scroll(), content="0")

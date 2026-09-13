@@ -1,4 +1,17 @@
 ///|
+fn battery_label(battery_percent : Int?) -> String {
+  match battery_percent {
+    Some(percent) => {
+      if percent < 0 || percent > 100 {
+        abort("battery percentage must be in 0..100")
+      }
+      "\{percent}%"
+    }
+    None => "--%"
+  }
+}
+
+///|
 /// Draws the current scene: a soft sky, a mist band, one-frame tree sprites
 /// scrolling with `scroll` and wrapping across `canvas width + margin`, a
 /// ground strip along the bottom and the four-frame walker sprite fixed
@@ -6,8 +19,13 @@
 /// `walker_frame`, advanced by `update` while moving and frozen while
 /// paused. Every dimension derives from `canvas.width()` /
 /// `canvas.height()`; sprites and rectangles clip silently at the canvas
-/// edges.
-pub fn State::draw(self : State, canvas~ : @graphics.Canvas) -> Unit {
+/// edges. `battery_percent` is semantic runtime data; no hardware API is
+/// accessed by the application. Unknown readings appear as `--%`.
+pub fn State::draw(
+  self : State,
+  canvas~ : @graphics.Canvas,
+  battery_percent~ : Int?,
+) -> Unit {
   let width = canvas.width()
   let height = canvas.height()
   let sky = @core.Color::rgb(r=172, g=208, b=232)
@@ -59,5 +77,12 @@ pub fn State::draw(self : State, canvas~ : @graphics.Canvas) -> Unit {
     frame=self.walker_frame,
     x=32,
     y=(ground_y - sheet.frame_height()).max(0),
+  )
+  let battery_text = battery_label(battery_percent)
+  canvas.text(
+    text=battery_text,
+    x=(width - @graphics.text_width(text=battery_text) - 2).max(0),
+    y=2,
+    color=@core.Color::rgb(r=31, g=51, b=53),
   )
 }
