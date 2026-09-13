@@ -39,12 +39,44 @@ test "KeyState releases only held keys" {
 }
 
 ///|
+test "Space and Enter keep Ok held until the last alias is released" {
+  let input = @input.InputState::new()
+  let keys = KeyState::new()
+  inspect(keys.handle_keydown("Space", input), content="true")
+  input.advance()
+  inspect(keys.handle_keydown("Enter", input), content="false")
+  inspect(keys.handle_keydown("Enter", input), content="false")
+  inspect(input.pressed(@input.Ok), content="true")
+  inspect(input.just_pressed(@input.Ok), content="false")
+  inspect(keys.handle_keyup("Space", input), content="false")
+  inspect(input.pressed(@input.Ok), content="true")
+  inspect(input.just_released(@input.Ok), content="false")
+  inspect(keys.handle_keyup("Enter", input), content="true")
+  inspect(input.pressed(@input.Ok), content="false")
+  inspect(input.just_released(@input.Ok), content="true")
+  inspect(keys.handle_keyup("Enter", input), content="false")
+}
+
+///|
+test "Ok aliases also work when Enter is pressed first" {
+  let input = @input.InputState::new()
+  let keys = KeyState::new()
+  inspect(keys.handle_keydown("Enter", input), content="true")
+  inspect(keys.handle_keydown("Space", input), content="false")
+  inspect(keys.handle_keyup("Enter", input), content="false")
+  inspect(input.pressed(@input.Ok), content="true")
+  inspect(keys.handle_keyup("Space", input), content="true")
+  inspect(input.pressed(@input.Ok), content="false")
+}
+
+///|
 test "KeyState release_all clears stuck keys on blur" {
   let input = @input.InputState::new()
   let keys = KeyState::new()
   let _ = keys.handle_keydown("ArrowUp", input)
   let _ = keys.handle_keydown("ArrowDown", input)
   let _ = keys.handle_keydown("Space", input)
+  let _ = keys.handle_keydown("Enter", input)
   keys.release_all(input)
   inspect(input.pressed(@input.Up), content="false")
   inspect(input.pressed(@input.Down), content="false")

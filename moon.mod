@@ -12,7 +12,7 @@ keywords = [ "moonbit", "game", "template", "folotoy" ]
 
 preferred_target = "native"
 
-description = "Starter application template for the FoloToy AI Passport wearable, built on the colmugx/ai-passport SDK: Forest Walk is included; browser preview and device integration are planned."
+description = "Starter application template for the FoloToy AI Passport wearable"
 
 source = "src"
 

@@ -14,8 +14,9 @@ pub fn map_key(code : String) -> @input.Button? {
 
 ///|
 /// Tracks which mapped browser keys are currently held so auto-repeat keydown
-/// bursts translate into a single `press` edge per physical key, and a keyup
-/// only releases a key that is actually held.
+/// bursts translate into a single `press` edge per physical key. Multiple
+/// physical keys can map to one logical button; the button stays pressed until
+/// its last physical key is released.
 ///
 /// Pure browser-agnostic logic: the runtime feeds it `KeyboardEvent.code`
 /// strings from the DOM events and forwards the transitions to the shared
@@ -32,8 +33,19 @@ pub fn KeyState::new() -> KeyState {
 }
 
 ///|
-/// Applies a keydown for `code`: dispatches `press` and records the key only
-/// when it was not already held (auto-repeat guard), mapped keys only.
+/// Whether any held physical key currently drives `button`.
+fn KeyState::holds_button(self : KeyState, button : @input.Button) -> Bool {
+  for _code, held_button in self.held {
+    if held_button == button {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Applies a keydown for `code`: records each mapped physical key only once
+/// (auto-repeat guard), and presses its logical button only on the first key.
 /// Returns whether a press transition was dispatched.
 pub fn KeyState::handle_keydown(
   self : KeyState,
@@ -45,18 +57,23 @@ pub fn KeyState::handle_keydown(
   }
   match map_key(code) {
     Some(button) => {
+      let already_pressed = self.holds_button(button)
       self.held[code] = button
-      input.press(button)
-      true
+      if already_pressed {
+        false
+      } else {
+        input.press(button)
+        true
+      }
     }
     None => false
   }
 }
 
 ///|
-/// Applies a keyup for `code`: dispatches `release` and forgets the key only
-/// when it was actually held. Returns whether a release transition was
-/// dispatched.
+/// Applies a keyup for `code`: forgets the held physical key, and releases its
+/// logical button only when no other physical alias remains held. Returns
+/// whether a release transition was dispatched.
 pub fn KeyState::handle_keyup(
   self : KeyState,
   code : String,
@@ -65,22 +82,32 @@ pub fn KeyState::handle_keyup(
   match self.held.get(code) {
     Some(button) => {
       self.held.remove(code)
-      input.release(button)
-      true
+      if self.holds_button(button) {
+        false
+      } else {
+        input.release(button)
+        true
+      }
     }
     None => false
   }
 }
 
 ///|
-/// Releases every held key, dispatching `release` for each. The runtime calls
-/// this on window blur so a key held across focus loss cannot stick down.
+/// Releases each held logical button once. The runtime calls this on window
+/// blur so a key held across focus loss cannot stick down.
 pub fn KeyState::release_all(
   self : KeyState,
   input : @input.InputState,
 ) -> Unit {
-  for _code, button in self.held {
-    input.release(button)
+  if self.holds_button(@input.Up) {
+    input.release(@input.Up)
+  }
+  if self.holds_button(@input.Down) {
+    input.release(@input.Down)
+  }
+  if self.holds_button(@input.Ok) {
+    input.release(@input.Ok)
   }
   self.held.clear()
 }

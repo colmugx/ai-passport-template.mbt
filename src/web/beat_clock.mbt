@@ -8,15 +8,15 @@ pub fn beat_seconds(dotted_quarter_bpm : Int) -> Double {
 ///|
 /// Browser-runtime-only visual beat clock.
 ///
-/// WebAudio is intentionally not part of the T1 preview, but the walk cycle
-/// still needs a beat value. This clock integrates elapsed monotonic browser
+/// Before WebAudio is enabled, the walk cycle still needs a beat value. This
+/// clock integrates elapsed monotonic browser
 /// time into whole dotted-quarter beats at the song's tempo. The frame loop
 /// only feeds it while the scene is unpaused, so pausing freezes the beat and
 /// resuming continues from the same elapsed musical time.
 ///
-/// This is temporary T1 glue that lives outside `forest_walk`: T2 WebAudio
-/// replaces `beat()` reads with the authoritative `Player::beat()` from the
-/// audio transport.
+/// This remains pre-audio preview timing. After sound unlock, the runtime
+/// derives the visible beat from WebAudio's audible playback head; the SDK
+/// Player is ahead of playback because it pre-renders queued PCM.
 pub struct BeatClock {
   priv dotted_quarter_bpm : Int
   priv mut elapsed : Double

@@ -32,3 +32,23 @@ body {
   opacity: 0.7;
   user-select: none;
 }
+
+.sound-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+#enable-sound {
+  padding: 6px 10px;
+  border: 1px solid #798b92;
+  border-radius: 4px;
+  background: #303b42;
+  color: #f1f5f6;
+  cursor: pointer;
+}
+
+#enable-sound:hover {
+  background: #40535b;
+}

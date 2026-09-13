@@ -10,7 +10,8 @@ const BATTERY_PERCENT : Int = 82
 ///|
 /// Everything the browser runtime owns: the SDK logical canvas and Forest
 /// Walk scene, keyboard edge routing, the 30 Hz accumulator, the visual beat
-/// clock, and the presentation handles. Browser APIs stay in this package;
+/// clock, the SDK Player and WebAudio scheduling, and presentation handles.
+/// Browser APIs stay in this package;
 /// `forest_walk` never sees them.
 priv struct Runtime {
   canvas : @graphics.Canvas
@@ -19,6 +20,16 @@ priv struct Runtime {
   keys : KeyState
   beat : BeatClock
   stepper : Stepper
+  player : @audio.Player
+  pcm : FixedArray[Int]
+  timeline : PlaybackTimeline
+  mut audio_context : WebAudioContext?
+  mut sound_unlocked : Bool
+  mut audio_failed : Bool
+  mut audio_error_message : String?
+  mut unlock_pending : Bool
+  mut scheduler_started : Bool
+  mut hidden : Bool
   // Reused scratch buffers for the FrameView -> RGBA conversion.
   row : FixedArray[Int]
   rgba : FixedArray[Byte]
@@ -53,20 +64,25 @@ fn install_input(rt : Runtime) -> Unit {
 /// edges exactly once per step), then rasterizes and presents the current
 /// state.
 ///
-/// The visual beat clock advances with the frame delta only while the scene
-/// is unpaused, so pause freezes scene scroll, walker pose and beat together.
-/// T1-only glue: T2 WebAudio replaces `rt.beat.beat()` with `Player::beat()`
-/// and drops the tick call.
+/// Before sound unlock the T1 visual beat clock keeps the preview moving.
+/// Afterwards, only the WebAudio playback head drives the pose. This frame
+/// path never renders PCM or advances the SDK Player.
 fn frame_tick(rt : Runtime, now : Double) -> Unit {
   // rAF timestamps are milliseconds; the simulation and beat clocks run on
   // seconds.
   let dt = (now - rt.last_now) / 1000.0
   rt.last_now = now
-  rt.beat.tick_active(dt, active=!rt.state.paused())
+  if !rt.sound_unlocked {
+    rt.beat.tick_active(dt, active=!rt.state.paused())
+  }
   let steps = rt.stepper.steps_due(dt)
   for _ in 0..<steps {
-    rt.state = rt.state.update(input=rt.input, beat=rt.beat.beat())
+    let was_paused = rt.state.paused()
+    rt.state = rt.state.update(input=rt.input, beat=audible_beat(rt))
     rt.input.advance()
+    if rt.state.paused() != was_paused {
+      on_app_pause_changed(rt)
+    }
   }
   rt.state.draw(canvas=rt.canvas, battery_percent=Some(BATTERY_PERCENT))
   convert_frame(view=rt.canvas.frame_view(), rgba=rt.rgba, row=rt.row)
@@ -76,8 +92,8 @@ fn frame_tick(rt : Runtime, now : Double) -> Unit {
 ///|
 /// Browser entry point, run when the page script loads: builds the logical
 /// 120x160 canvas and the initial scene (walking at speed 1), reads the
-/// showcase song's dotted-quarter tempo for the visual beat clock, wires
-/// keyboard input and starts the requestAnimationFrame loop.
+/// showcase song's dotted-quarter tempo for the pre-audio visual clock,
+/// constructs the runtime-owned Player, and starts the frame loop.
 fn main {
   let canvas = @graphics.Canvas::logical()
   let state = @forest_walk.State::new()
@@ -94,6 +110,16 @@ fn main {
       dotted_quarter_bpm=state.song().tempo().dotted_quarter_bpm,
     ),
     stepper: Stepper::new(),
+    player: @audio.Player::new(song=state.song()),
+    pcm: FixedArray::make(AUDIO_CHUNK_SAMPLES, 0),
+    timeline: PlaybackTimeline::new(),
+    audio_context: None,
+    sound_unlocked: false,
+    audio_failed: false,
+    audio_error_message: None,
+    unlock_pending: false,
+    scheduler_started: false,
+    hidden: js_document_hidden(),
     row: FixedArray::make(width, 0),
     rgba: FixedArray::make(width * height * 4, 0),
     ctx,
@@ -101,5 +127,6 @@ fn main {
     last_now: js_now(),
   }
   install_input(rt)
+  install_audio(rt)
   js_start_frame_loop(ts => frame_tick(rt, ts))
 }
