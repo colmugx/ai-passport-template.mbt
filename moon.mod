@@ -19,3 +19,5 @@ source = "src"
 import {
   "colmugx/ai-passport@0.0.1",
 }
+
+supported_targets = "+native+js"

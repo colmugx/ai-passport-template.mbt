@@ -1,0 +1,14 @@
+supported_targets = "js"
+
+import {
+  "colmugx/ai-passport-template/forest_walk",
+  "colmugx/ai-passport/graphics",
+  "colmugx/ai-passport/input",
+  "colmugx/ai-passport/music",
+}
+
+import {
+  "colmugx/ai-passport/core",
+} for "wbtest"
+
+pkgtype(kind: "executable")

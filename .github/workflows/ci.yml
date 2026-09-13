@@ -31,6 +31,11 @@ jobs:
           moon check --target js --output-json
           moon test --target js --output-json
 
+      - name: Build browser preview bundle
+        run: |
+          moon build --target js
+          test -f _build/js/debug/build/web/web.js
+
       - name: Check generated API and formatting
         run: |
           moon info
