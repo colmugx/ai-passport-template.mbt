@@ -1,0 +1,154 @@
+#include "display_bridge.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "bsp_display.h"
+#include "bsp_pins.h"
+#include "esp_heap_caps.h"
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_panel_ops.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "moonbit.h"
+
+#define LOGICAL_W 120
+#define LOGICAL_H 160
+#define SCALE 2
+#define PHYSICAL_STRIP_ROWS 16
+#define LOGICAL_STRIP_ROWS (PHYSICAL_STRIP_ROWS / SCALE)
+#define STRIP_BYTES (BSP_LCD_W * PHYSICAL_STRIP_ROWS * sizeof(uint16_t))
+
+_Static_assert(BSP_LCD_W == LOGICAL_W * SCALE, "LCD width must be 2x logical width");
+_Static_assert(BSP_LCD_H == LOGICAL_H * SCALE, "LCD height must be 2x logical height");
+_Static_assert(PHYSICAL_STRIP_ROWS % SCALE == 0, "strip must contain complete logical rows");
+
+static const char *TAG = "display_bridge";
+static uint16_t *s_strip;
+static SemaphoreHandle_t s_transfer_done;
+static esp_lcd_panel_handle_t s_panel;
+static int s_next_row;
+static int s_pending_rows;
+static bool s_presenting;
+static int64_t s_present_start_us;
+
+static bool color_transfer_done(
+    esp_lcd_panel_io_handle_t io,
+    esp_lcd_panel_io_event_data_t *event,
+    void *user_context
+) {
+    (void)io;
+    (void)event;
+    (void)user_context;
+    BaseType_t should_yield = pdFALSE;
+    xSemaphoreGiveFromISR(s_transfer_done, &should_yield);
+    return should_yield == pdTRUE;
+}
+
+esp_err_t ai_passport_display_init(void) {
+    esp_err_t err = bsp_display_init();
+    if (err != ESP_OK) {
+        return err;
+    }
+    s_panel = bsp_display_panel();
+    esp_lcd_panel_io_handle_t io = bsp_display_io();
+    if (s_panel == NULL || io == NULL) {
+        ESP_LOGE(TAG, "BSP returned a null panel or IO handle");
+        return ESP_ERR_INVALID_STATE;
+    }
+    s_strip = heap_caps_malloc(STRIP_BYTES, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    if (s_strip == NULL) {
+        ESP_LOGE(TAG, "Cannot allocate %u-byte DMA strip", (unsigned)STRIP_BYTES);
+        return ESP_ERR_NO_MEM;
+    }
+    s_transfer_done = xSemaphoreCreateBinary();
+    if (s_transfer_done == NULL) {
+        ESP_LOGE(TAG, "Cannot allocate LCD transfer semaphore");
+        heap_caps_free(s_strip);
+        s_strip = NULL;
+        return ESP_ERR_NO_MEM;
+    }
+    esp_lcd_panel_io_callbacks_t callbacks = {
+        .on_color_trans_done = color_transfer_done,
+    };
+    err = esp_lcd_panel_io_register_event_callbacks(io, &callbacks, NULL);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Cannot register LCD DMA completion callback: %s", esp_err_to_name(err));
+        vSemaphoreDelete(s_transfer_done);
+        s_transfer_done = NULL;
+        heap_caps_free(s_strip);
+        s_strip = NULL;
+        return err;
+    }
+    ESP_LOGI(TAG, "LCD DMA strip: %dx%d RGB565, %u bytes", BSP_LCD_W,
+             PHYSICAL_STRIP_ROWS, (unsigned)STRIP_BYTES);
+    return ESP_OK;
+}
+
+static void flush_strip(void) {
+    if (s_pending_rows == 0) {
+        return;
+    }
+    const int y0 = (s_next_row - s_pending_rows) * SCALE;
+    const int y1 = y0 + s_pending_rows * SCALE;
+    ESP_ERROR_CHECK(esp_lcd_panel_draw_bitmap(s_panel, 0, y0, BSP_LCD_W, y1, s_strip));
+    if (xSemaphoreTake(s_transfer_done, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        ESP_LOGE(TAG, "LCD DMA transfer timed out for physical rows %d..%d", y0, y1);
+        abort();
+    }
+    s_pending_rows = 0;
+}
+
+void ai_passport_display_begin(void) {
+    if (s_strip == NULL || s_panel == NULL || s_presenting) {
+        ESP_LOGE(TAG, "Display begin called before init or during a present");
+        abort();
+    }
+    s_next_row = 0;
+    s_pending_rows = 0;
+    s_presenting = true;
+    s_present_start_us = esp_timer_get_time();
+}
+
+void ai_passport_display_row(int32_t y, int32_t *rgb565) {
+    if (!s_presenting || y != s_next_row || rgb565 == NULL ||
+        Moonbit_array_length(rgb565) != LOGICAL_W) {
+        ESP_LOGE(TAG, "Invalid logical row y=%ld, expected=%d", (long)y, s_next_row);
+        abort();
+    }
+    uint16_t *upper = &s_strip[s_pending_rows * SCALE * BSP_LCD_W];
+    uint16_t *lower = upper + BSP_LCD_W;
+    for (int x = 0; x < LOGICAL_W; ++x) {
+        // FrameView exposes the canonical RGB565 integer (0xF800 for red).
+        // The ST7789 SPI protocol is big-endian per pixel, while the C3 DMA
+        // buffer is little-endian, so swap adjacent bytes at this one device
+        // boundary. The application and SDK stay byte-order agnostic.
+        const uint16_t logical_pixel = (uint16_t)rgb565[x];
+        const uint16_t pixel = (uint16_t)((logical_pixel << 8) |
+                                          (logical_pixel >> 8));
+        upper[x * SCALE] = pixel;
+        upper[x * SCALE + 1] = pixel;
+    }
+    memcpy(lower, upper, BSP_LCD_W * sizeof(uint16_t));
+    ++s_next_row;
+    ++s_pending_rows;
+    if (s_pending_rows == LOGICAL_STRIP_ROWS) {
+        flush_strip();
+    }
+}
+
+void ai_passport_display_end(void) {
+    if (!s_presenting || s_next_row != LOGICAL_H) {
+        ESP_LOGE(TAG, "Display end after %d of %d logical rows", s_next_row, LOGICAL_H);
+        abort();
+    }
+    flush_strip();
+    const int64_t present_us = esp_timer_get_time() - s_present_start_us;
+    s_presenting = false;
+    ESP_LOGI(TAG, "present_us=%lld approximate_max_present_fps=%lld", present_us,
+             present_us > 0 ? 1000000LL / present_us : 0LL);
+}

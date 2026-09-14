@@ -1,0 +1,15 @@
+pkgtype(kind: "foreign_library")
+
+import {
+  "colmugx/ai-passport/core",
+  "colmugx/ai-passport/graphics",
+  "colmugx/ai-passport/driver",
+}
+
+options(
+  link: { "native": { "cc": "moon_cc_capture.py" } },
+  targets: {
+    "display_sink.mbt": [ "native" ],
+    "smoke_scene_test.mbt": [ "js" ],
+  },
+)
