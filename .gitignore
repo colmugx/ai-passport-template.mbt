@@ -1,0 +1,13 @@
+_build/
+.DS_Store
+.mooncakes/
+.agents
+/web/dist/
+
+__pycache__/
+/device/esp32c3/build/
+/device/esp32c3/generated/
+/device/esp32c3/moonbit/_build/
+/device/esp32c3/sdkconfig
+/device/esp32c3/sdkconfig.old
+/device/esp32c3/managed_components/

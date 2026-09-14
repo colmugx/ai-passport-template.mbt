@@ -12,7 +12,21 @@ colmugx/ai-passport SDK
  Web runtime   Device runtime
 ```
 
-The browser preview (`src/web` + `web/`) presents the SDK's rasterized 120×160 RGB565 frame through `FrameView` onto an HTML Canvas at 4x scale and plays the showcase song through WebAudio. It is a development preview, not a hardware emulator. ESP-IDF/FoloToy BSP integration and device audio remain future work. Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
+The browser preview (`src/web` + `web/`) presents the SDK's rasterized 120×160 RGB565 frame through `FrameView` onto an HTML Canvas at 4x scale and plays the showcase song through WebAudio. It is a development preview, not a hardware emulator. A separate ESP32-C3 display smoke-test firmware now builds under `device/esp32c3/`; physical panel behavior has not yet been verified. Device input, audio, and battery work remains future work. Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
+
+## ESP32-C3 display smoke firmware
+
+The device project uses ESP-IDF 5.5.3 and a pinned subset of the official FoloToy display BSP. It builds a MoonBit probe and an SDK `Canvas::logical()` color test; it does not run Forest Walk. The 120×160 RGB565 frame is copied through an SDK `DisplaySink` into a 240×16 RGB565 DMA strip and presented at exact 2× scale. Backlight starts at 60%. The firmware logs the probe result and full-frame `present_us` with an approximate present-FPS ceiling. Physical colors, orientation, and actual latency still require a board test.
+
+After installing the pinned MoonBit toolchain and sourcing ESP-IDF 5.5.3's `export.sh`:
+
+```sh
+./device/build.sh
+./device/flash.sh -p PORT    # only with the board connected
+./device/monitor.sh -p PORT
+```
+
+`device/build.sh` verifies the MoonBit runtime source hashes, runs a native Moon build with the device package's `options.link.native.cc` pointing to `tools/moon_cc_capture.py`, and then runs ESP-IDF. The wrapper captures Moon-generated C under the ignored `device/esp32c3/generated/` directory. ESP-IDF compiles that C and the matching MoonBit runtime source with `riscv32-esp-elf-gcc`; no host MoonBit object or manually built archive enters the firmware. See [device/esp32c3/README.md](device/esp32c3/README.md) for the toolchain pins and build contract.
 
 ## Browser preview
 
