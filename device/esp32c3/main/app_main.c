@@ -104,12 +104,16 @@ void app_main(void) {
         }
 
         deadline_us += FRAME_PERIOD_US;
-        if (deadline_us <= esp_timer_get_time()) {
+        const int64_t now_us = esp_timer_get_time();
+        if (deadline_us <= now_us) {
             ++missed_deadlines;
-            // One simulation step per presented frame. Give the scheduler
-            // breathing room after an overrun instead of rendering catch-up
-            // frames or accumulating an unbounded deadline lag.
-            deadline_us = esp_timer_get_time() + FRAME_PERIOD_US;
+            // One simulation step per presented frame. The frame work already
+            // exceeded its deadline: skip the missed frame instead of
+            // rendering a catch-up frame, discard the accumulated lag, and
+            // start the next frame from now after one bounded scheduler yield.
+            deadline_us = now_us;
+            vTaskDelay(1);
+            continue;
         }
         const int64_t wait_us = deadline_us - esp_timer_get_time();
         const TickType_t ticks = pdMS_TO_TICKS((wait_us + 999) / 1000);

@@ -10,5 +10,4 @@ import {
 
 options(
   "native-stub": [ "host_display_stub.c" ],
-  link: { "native": { "cc": "./tools/moon_cc_capture.py" } },
 )

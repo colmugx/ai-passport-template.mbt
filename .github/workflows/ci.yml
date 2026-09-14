@@ -26,6 +26,10 @@ jobs:
           ./tools/compile_assets.sh
           git diff --exit-code
 
+      - name: Test MoonBit C capture wrapper
+        run: |
+          python3 -m unittest tools/test_moon_cc_capture.py
+
       - name: Check and test native
         run: |
           moon check --target native --output-json
