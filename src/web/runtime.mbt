@@ -54,7 +54,7 @@ fn frame_tick(rt : Runtime, now : Double) -> Unit {
   }
   let steps = rt.stepper.steps_due(dt)
   for _ in 0..<steps {
-    rt.state = rt.state.update(beat=audible_beat(rt))
+    rt.state = rt.state.update(musical_eighths=audible_eighths(rt))
   }
   rt.state.draw(canvas=rt.canvas, battery_percent=Some(BATTERY_PERCENT))
   convert_frame(view=rt.canvas.frame_view(), rgba=rt.rgba, row=rt.row)

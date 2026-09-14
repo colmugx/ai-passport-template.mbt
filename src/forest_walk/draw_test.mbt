@@ -15,8 +15,8 @@ test "draw runs clean on a small canvas, the logical canvas and a fairy-sized ca
 
 ///|
 test "draw handles continuously walking states" {
-  let moving = State::new().update(beat=1).update(beat=2)
-  assert_eq(moving.scroll(), 2)
+  let moving = State::new().update(musical_eighths=1).update(musical_eighths=2)
+  assert_eq(moving.scroll(), 1)
   moving.draw(canvas=@graphics.Canvas::logical(), battery_percent=Some(82))
   moving.draw(
     canvas=@graphics.Canvas::new(width=64, height=80),

@@ -15,3 +15,7 @@ void ai_passport_display_row(int32_t y, int32_t *row) {
 void ai_passport_display_end(void) { abort(); }
 
 int32_t ai_passport_battery_soc(void) { return -1; }
+
+// No audio hardware on hosts: the music position stays at the track start,
+// so the walk clock holds pose 0.
+int64_t ai_passport_music_position_us(void) { return 0; }

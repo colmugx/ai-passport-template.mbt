@@ -26,10 +26,13 @@ idf.py reconfigure
 stale=0
 grep -qx 'CONFIG_FREERTOS_HZ=1000' "$device_root/sdkconfig" || stale=1
 grep -qx 'CONFIG_PARTITION_TABLE_CUSTOM=y' "$device_root/sdkconfig" || stale=1
+grep -qx 'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"' \
+    "$device_root/sdkconfig" || stale=1
 if [[ "$stale" != 0 ]]; then
     echo "Effective sdkconfig misses the AI Passport baselines" \
-        "(CONFIG_FREERTOS_HZ=1000, CONFIG_PARTITION_TABLE_CUSTOM=y)." >&2
-    grep -E '^CONFIG_FREERTOS_HZ=|^CONFIG_PARTITION_TABLE_CUSTOM=' \
+        "(CONFIG_FREERTOS_HZ=1000, CONFIG_PARTITION_TABLE_CUSTOM=y," \
+        'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv").' >&2
+    grep -E '^CONFIG_FREERTOS_HZ=|^CONFIG_PARTITION_TABLE_CUSTOM' \
         "$device_root/sdkconfig" >&2 || true
     echo "The existing sdkconfig predates these defaults and was not regenerated." >&2
     echo "Regenerate it with: rm $device_root/sdkconfig && ./device/build.sh" >&2

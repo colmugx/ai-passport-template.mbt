@@ -1,5 +1,6 @@
 #include "music_stream.h"
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -7,6 +8,7 @@
 #include "bsp_audio.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -25,6 +27,9 @@ extern const uint8_t forest_walk_pcm_end[] asm("_binary_forest_walk_pcm_end");
 static const char *TAG = "music_stream";
 
 static bool s_started;
+// Loop-wrapped write offset in samples (bytes / 2), published for the
+// visual walk clock. Atomic: the render loop reads it without a lock.
+static atomic_int s_loop_sample;
 
 // Streams bounded chunks straight from flash-mapped memory into the codec.
 // bsp_audio_write blocks until the DMA queue accepts the chunk, which paces
@@ -44,6 +49,7 @@ static void music_task(void *arg) {
             if (offset >= total) {
                 offset = 0; // loop the authored track from its beginning
             }
+            atomic_store(&s_loop_sample, (int)(offset / 2));
             continue;
         }
         // Keep the offset: a failed write consumed no samples, so the track
@@ -83,4 +89,14 @@ esp_err_t ai_passport_music_start(void) {
              (unsigned)total, MUSIC_SAMPLE_RATE_HZ, PCM_CHUNK_SAMPLES,
              MUSIC_STARTUP_VOLUME_PERCENT);
     return ESP_OK;
+}
+
+int64_t ai_passport_music_position_us(void) {
+    if (!s_started) {
+        // Silent mode (init failed or not yet started): keep the walk clock
+        // moving on the boot timeline so the fairy still steps at tempo.
+        return esp_timer_get_time();
+    }
+    const int sample = atomic_load(&s_loop_sample);
+    return (int64_t)sample * 1000000LL / MUSIC_SAMPLE_RATE_HZ;
 }

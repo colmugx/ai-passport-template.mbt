@@ -42,7 +42,7 @@ pub fn State::draw(
   canvas~ : @graphics.Canvas,
   battery_percent~ : Int?,
 ) -> Unit {
-  let scroll = self.scroll
+  let scroll = self.scroll()
   draw_indexed_layer(
     canvas~,
     layer=self.far_layer,

@@ -1,6 +1,7 @@
 // Battery bridge: the only C seam between the CW2017 gauge and the MoonBit
-// device runtime. The vendored BSP owns the chip; this module owns polling
-// cadence and the cached reading the per-frame HUD path reads.
+// device runtime. The pinned FoloToy BSP submodule owns the chip; this
+// module owns polling cadence and the cached reading the per-frame HUD
+// path reads.
 #pragma once
 
 #include <stdint.h>

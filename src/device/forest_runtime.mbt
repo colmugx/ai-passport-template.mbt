@@ -39,7 +39,7 @@ fn require_scene() -> DeviceScene {
 #export_name("ai_passport_mbt_forest_update")
 pub fn forest_update() -> Unit {
   let scene = require_scene()
-  scene.state = scene.state.update(beat=0)
+  scene.state = scene.state.update(musical_eighths=device_musical_eighths())
 }
 
 ///|

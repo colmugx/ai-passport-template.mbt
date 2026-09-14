@@ -24,7 +24,7 @@ pub fn State::draw(Self, canvas~ : @graphics.Canvas, battery_percent~ : Int?) ->
 pub fn State::frame(Self) -> Int
 pub fn State::new() -> Self
 pub fn State::scroll(Self) -> Int
-pub fn State::update(Self, beat~ : Int) -> Self
+pub fn State::update(Self, musical_eighths~ : Int) -> Self
 pub fn State::walker_frame(Self) -> Int
 pub fn State::walker_sheet(Self) -> @graphics.SpriteSheet
 

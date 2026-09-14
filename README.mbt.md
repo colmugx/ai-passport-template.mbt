@@ -38,7 +38,7 @@ One command builds the MoonBit JS target and serves the preview:
 
 Requires the MoonBit toolchain and `python3` (used only as the static file server); no npm dependencies. The script builds `src/web` for the JS target, assembles the bundle into `web/dist/`, and serves the `web/` directory. Open the printed URL in a browser.
 
-The ambient scene starts walking and scrolling immediately at one logical pixel per 30 Hz simulation frame. There are no speed or pause controls; ArrowUp, ArrowDown, Space and Enter are unused. Click **Enable sound** to unlock WebAudio: the preview fetches the authored music file, decodes it natively in the browser and loops it; the nearby status shows whether sound is active. Browsers require this user gesture before audio can play. Before sound is enabled, the preview still animates using a temporary visual beat clock. The battery HUD shows a fixed `82%` fixture supplied by the browser runtime.
+The ambient scene starts walking and scrolling immediately at 22.5 logical pixels per second. There are no speed or pause controls; ArrowUp, ArrowDown, Space and Enter are unused. Click **Enable sound** to unlock WebAudio: the preview fetches the authored music file, decodes it natively in the browser and loops it; the nearby status shows whether sound is active. Browsers require this user gesture before audio can play. Before sound is enabled, the preview still animates using a temporary visual beat clock. The battery HUD shows a fixed `82%` fixture supplied by the browser runtime.
 
 How a frame reaches the screen (the SDK rasterizer stays authoritative; the browser never redraws SDK content with Canvas2D primitives):
 
@@ -52,7 +52,7 @@ Forest Walk State::draw
   -> CSS integer scaling to 480x640 with image-rendering: pixelated
 ```
 
-The application updates at a fixed 30 Hz simulation rate driven by `requestAnimationFrame` (elapsed time is accumulated and capped after tab suspension); drawing happens every animation frame. The fairy advances one of its six poses every four simulation frames, completing a walk cycle in about 0.8 seconds. Music is file-based: `dev.sh` copies the single authored WAV or MP3 into the preview bundle and the browser decodes and loops it natively — no PCM synthesis runs in the preview. Once sound starts, the runtime supplies the beat from the audible WebAudio playback head (loop position wrapped at the track duration) against the application's music tempo; the current fairy pose still follows the 30 Hz frame counter. Hiding the tab suspends WebAudio so the audible timeline stays frozen.
+The application updates at a fixed 30 Hz simulation rate driven by `requestAnimationFrame` (elapsed time is accumulated and capped after tab suspension); drawing happens every animation frame. The fairy pose is beat-locked to the music: one pose per eighth note, completing one full walk cycle per 6/8 bar (about 1.58 seconds at the 76 dotted-quarter-BPM tempo, i.e. quarter-note 114). Music is file-based: `dev.sh` copies the single authored WAV or MP3 into the preview bundle and the browser decodes and loops it natively — no PCM synthesis runs in the preview. Once sound starts, the runtime supplies the musical position from the audible WebAudio playback head (loop position wrapped at the track duration) against the application's music tempo, and the fairy pose follows it directly; before sound is enabled, a temporary visual clock supplies the same eighths. Hiding the tab suspends WebAudio so the audible timeline stays frozen.
 
 ## Forest Walk assets
 
@@ -87,10 +87,11 @@ converter. `tools/compile_audio.py` (requires `ffmpeg`) converts the selected
 file into the device playback format — signed PCM16 little-endian, mono,
 16000 Hz — under the ignored `device/esp32c3/generated/forest_walk.pcm`,
 reporting source and generated durations and sizes, refusing tracks over the
-flash budget, and failing on any conversion error. The authored file is
-committed; the generated PCM is not. The browser preview plays the authored
-file directly with native decoding. CI installs ffmpeg and runs the same
-conversion.
+`0x280000`-byte device flash budget (the PCM shares the factory app
+partition with the firmware), and failing on any conversion error. The
+authored file is committed; the generated PCM is not. The browser preview
+plays the authored file directly with native decoding. CI installs ffmpeg
+and runs the same conversion.
 
 ## Develop
 

@@ -8,6 +8,8 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("compile_audio.py")
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(SCRIPT.parent))
+import compile_audio
 
 
 def make_tone(path: Path, seconds: float) -> None:
@@ -113,6 +115,33 @@ class CompileAudioTests(unittest.TestCase):
         result = self.run_tool("--max-bytes", "16000")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("budget", result.stderr)
+
+    def test_pcm_budget_fits_inside_factory_app_partition(self):
+        # The PCM is embedded in the factory app image, so the tool's budget
+        # must be smaller than the partition partitions.csv actually grants,
+        # with at least 1 MiB still reserved for the firmware itself.
+        sizes = {}
+        table = REPO_ROOT / "device" / "esp32c3" / "partitions.csv"
+        for line in table.read_text().splitlines():
+            line = line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            fields = [field.strip() for field in line.split(",")]
+            sizes[fields[0]] = int(fields[4], 0)
+        factory = sizes["factory"]
+        self.assertLess(compile_audio.MAX_PCM_BYTES, factory)
+        self.assertGreaterEqual(
+            factory - compile_audio.MAX_PCM_BYTES, 1024 * 1024
+        )
+
+    def test_default_budget_rejects_oversized_track(self):
+        # 90 s at 32,000 bytes/s = 2,880,000 bytes: over the 0x280000
+        # default ceiling, so the tool must refuse without any --max-bytes.
+        make_tone(self.assets / "forest_walk.wav", 90.0)
+        result = self.run_tool()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("budget", result.stderr)
+        self.assertIn(str(compile_audio.MAX_PCM_BYTES), result.stderr)
 
     def test_committed_authored_asset_still_converts(self):
         # The real repository asset must keep converting cleanly.

@@ -16,36 +16,41 @@ static const char *TAG = "battery_bridge";
 // Atomic so the render loop's reads never tear against the poll task.
 static atomic_int_fast32_t s_soc = -1;
 
-// One task initializes the gauge once and then polls it forever. A single
-// failed read keeps the previous value: a transient I2C error must not
-// flash "--%" over an otherwise healthy gauge; a stale value ages out after
-// at most one polling period of permanent failure. Read failures are only
-// logged once a valid reading existed, so a board without the gauge stays
-// quiet after the one init error.
+// One task initializes the gauge once and then polls it forever. Every poll
+// is authoritative for the HUD: a valid 0..100 SOC replaces the cache, and
+// a failed read stores -1 immediately, so the HUD falls back to "--%" the
+// moment the gauge stops standing behind its number instead of showing a
+// stale value indefinitely. Failure logs fire only on the transition into
+// a bad stretch, so a board without the gauge stays quiet after the one
+// init error.
 static void battery_task(void *arg) {
     (void)arg;
-    bool ever_valid = false;
     esp_err_t err = bsp_battery_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Battery gauge unavailable (%s); HUD will show --%%",
                  esp_err_to_name(err));
         // Keep polling: cw_read fails fast while no device is attached, and
         // the demo must not abort because battery is unavailable.
-    } else {
-        atomic_store(&s_soc, bsp_battery_soc());
-        ever_valid = true;
-        ESP_LOGI(TAG, "Battery gauge ready, SOC=%d mV=%d, polling every %d ms",
-                 bsp_battery_soc(), bsp_battery_mv(), BATTERY_POLL_PERIOD_MS);
     }
+    bool reading_valid = false;
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(BATTERY_POLL_PERIOD_MS));
         int soc = bsp_battery_soc();
         if (soc >= 0 && soc <= 100) {
+            if (!reading_valid) {
+                ESP_LOGI(TAG, "Battery gauge ready, SOC=%d mV=%d",
+                         soc, bsp_battery_mv());
+            }
+            reading_valid = true;
             atomic_store(&s_soc, soc);
-            ever_valid = true;
-        } else if (ever_valid) {
-            ESP_LOGW(TAG, "CW2017 SOC read failed (keep last reading)");
+        } else {
+            if (reading_valid) {
+                ESP_LOGW(TAG, "CW2017 SOC read failed (%d); HUD shows --%%",
+                         soc);
+            }
+            reading_valid = false;
+            atomic_store(&s_soc, -1);
         }
+        vTaskDelay(pdMS_TO_TICKS(BATTERY_POLL_PERIOD_MS));
     }
 }
 

@@ -1,21 +1,27 @@
 ///|
-/// Duration of one dotted-quarter beat in seconds at `bpm`. The Forest Walk
-/// music tempo is an application constant; runtimes that play audio derive
-/// the audible beat from their playback head against it.
+/// Duration of one dotted-quarter beat in seconds at `bpm`. In the 6/8 walk
+/// meter a beat subdivides into three eighth notes.
 pub fn beat_seconds(dotted_quarter_bpm : Int) -> Double {
   60.0 / dotted_quarter_bpm.to_double()
 }
 
 ///|
-/// Browser-runtime-only visual beat clock.
+/// Duration of one eighth note in seconds at `bpm` (a third of a
+/// dotted-quarter beat). One fairy pose lasts exactly this long.
+pub fn eighth_seconds(dotted_quarter_bpm : Int) -> Double {
+  beat_seconds(dotted_quarter_bpm) / 3.0
+}
+
+///|
+/// Browser-runtime-only visual music clock.
 ///
-/// Before WebAudio is enabled, the walk cycle still needs a beat value. This
-/// clock integrates elapsed monotonic browser
-/// time into whole dotted-quarter beats at the music's tempo. The ambient
-/// scene keeps moving until WebAudio supplies an audible playback beat.
+/// Before WebAudio is enabled, the walk cycle still needs a musical position.
+/// This clock integrates elapsed monotonic browser time into whole eighth
+/// notes at the music's tempo. The ambient scene keeps moving until WebAudio
+/// supplies the audible playback position.
 ///
 /// This remains pre-audio preview timing. After sound unlock, the runtime
-/// derives the visible beat from the WebAudio playback head of the authored
+/// derives the eighth index from the WebAudio playback head of the authored
 /// music file.
 pub struct BeatClock {
   priv dotted_quarter_bpm : Int
@@ -23,7 +29,7 @@ pub struct BeatClock {
 }
 
 ///|
-/// Creates a clock stopped at beat 0 for the given dotted-quarter tempo.
+/// Creates a clock stopped at eighth zero for the given dotted-quarter tempo.
 pub fn BeatClock::new(dotted_quarter_bpm~ : Int) -> BeatClock {
   { dotted_quarter_bpm, elapsed: 0.0, }
 }
@@ -38,30 +44,33 @@ pub fn BeatClock::tick(self : BeatClock, dt : Double) -> Unit {
 }
 
 ///|
-/// Current whole beat index since the clock started, floored at the music's
-/// dotted-quarter tempo.
-pub fn BeatClock::beat(self : BeatClock) -> Int {
-  music_beat(self.elapsed, self.dotted_quarter_bpm)
+/// Whole eighth-note index since the clock started. Used by the pre-audio
+/// clock and by the audible playback head, so both count eighths
+/// identically.
+pub fn BeatClock::eighths(self : BeatClock) -> Int {
+  music_eighths(self.elapsed, self.dotted_quarter_bpm)
 }
 
 ///|
-/// Maps a music playback position in seconds to the whole dotted-quarter
-/// beat at `bpm`. Used both by the pre-audio clock and by the audible
-/// playback head, so both count beats identically.
-pub fn music_beat(position_seconds : Double, dotted_quarter_bpm : Int) -> Int {
+/// Maps a music playback position in seconds to the whole eighth-note index
+/// at `bpm`.
+pub fn music_eighths(
+  position_seconds : Double,
+  dotted_quarter_bpm : Int,
+) -> Int {
   if dotted_quarter_bpm <= 0 {
     abort("dotted-quarter BPM must be positive")
   }
   if position_seconds <= 0.0 {
     return 0
   }
-  (position_seconds / beat_seconds(dotted_quarter_bpm)).floor().to_int()
+  (position_seconds / eighth_seconds(dotted_quarter_bpm)).floor().to_int()
 }
 
 ///|
 /// Position within one loop iteration of the authored track: elapsed time
-/// wraps at the track duration, so looping never grows the beat counter and
-/// the walk cadence stays anchored to the audible music. A non-positive
+/// wraps at the track duration, so looping never grows the eighth counter
+/// and the walk cadence stays anchored to the audible music. A non-positive
 /// duration (asset unknown or failed) pins the position at zero.
 pub fn loop_position(
   elapsed_seconds : Double,

@@ -7,8 +7,8 @@
 /// object. Fields are private; read them through the accessors.
 pub struct State {
   priv frame : Int // monotonically increasing frame counter
-  priv scroll : Int // horizontal world scroll offset in pixels
-  priv walker_frame : Int // fairy animation frame 0..=5
+  priv scroll_quarter : Int // horizontal scroll in quarter-pixels (see update.mbt)
+  priv walker_frame : Int // fairy pose 0..=5, held one eighth note per pose
   priv walker_sheet : @graphics.SpriteSheet // built once in State::new
   // The three authored parallax layers, built once in State::new.
   priv far_layer : @generated.IndexedLayer
@@ -30,7 +30,7 @@ pub const MUSIC_DOTTED_QUARTER_BPM : Int = 76
 pub fn State::new() -> State {
   {
     frame: 0,
-    scroll: 0,
+    scroll_quarter: 0,
     walker_frame: 0,
     walker_sheet: build_fairy_walk_right_sheet(),
     far_layer: build_forest_far_layer(),
@@ -40,9 +40,10 @@ pub fn State::new() -> State {
 }
 
 ///|
-/// Horizontal world scroll offset in pixels.
+/// Horizontal world scroll offset in whole logical pixels, floored from the
+/// internal quarter-pixel accumulator.
 pub fn State::scroll(self : State) -> Int {
-  self.scroll
+  self.scroll_quarter / SUBPIXEL_UNITS_PER_PIXEL
 }
 
 ///|

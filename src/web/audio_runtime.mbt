@@ -7,15 +7,16 @@ const MUSIC_ASSET_URL : String = "dist/music"
 ///|
 /// The renderer reads which part of the track is audible, not a render-ahead
 /// clock. AudioContext.currentTime freezes during visibility suspension, so
-/// the beat freezes with the audible music.
-fn audible_beat(rt : Runtime) -> Int {
+/// the musical position freezes with the audible music. The eighth index
+/// drives the fairy pose: one pose per eighth note at the application tempo.
+fn audible_eighths(rt : Runtime) -> Int {
   if !rt.sound_unlocked {
-    return rt.beat.beat()
+    return rt.beat.eighths()
   }
   match rt.audio_context {
     Some(ctx) => {
       let elapsed = js_audio_current_time(ctx) - rt.music_start_time
-      music_beat(
+      music_eighths(
         loop_position(elapsed, rt.music_duration),
         @forest_walk.MUSIC_DOTTED_QUARTER_BPM,
       )

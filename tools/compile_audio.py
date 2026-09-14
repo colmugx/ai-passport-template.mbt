@@ -27,9 +27,12 @@ TARGET_CHANNELS = 1
 TARGET_CODEC = "pcm_s16le"
 TARGET_FORMAT = "s16le"
 BYTES_PER_SECOND = TARGET_RATE * 2  # 16-bit mono
-# The PCM must fit the enlarged factory app partition next to the firmware;
-# half of the 8 MB flash is a hard ceiling for a single music asset.
-DEFAULT_MAX_BYTES = 4 * 1024 * 1024
+# The PCM is embedded inside the factory app image (partitions.csv sizes it
+# at 0x380000), so the music must leave room for the firmware itself: this
+# ceiling reserves at least 1 MiB of the partition for code and data.
+# tools/test_compile_audio.py pins the budget against partitions.csv; the
+# ESP-IDF linker remains the final authoritative capacity check.
+MAX_PCM_BYTES = 0x280000
 SOURCE_KINDS = ("wav", "mp3")
 
 
@@ -127,7 +130,7 @@ def main() -> None:
         "--source", choices=SOURCE_KINDS,
         help="resolve an ambiguous wav+mp3 pair explicitly",
     )
-    parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
+    parser.add_argument("--max-bytes", type=int, default=MAX_PCM_BYTES)
     args = parser.parse_args()
 
     for tool in ("ffmpeg", "ffprobe"):
@@ -165,8 +168,9 @@ def main() -> None:
     if size > args.max_bytes:
         fail(
             f"generated PCM is {size} bytes, over the {args.max_bytes}-byte "
-            f"budget; choose a shorter track or raise the flash budget "
-            f"deliberately"
+            f"device flash budget (the PCM shares the factory app partition "
+            f"with the firmware); choose a shorter track or raise the "
+            f"budget deliberately"
         )
 
 
