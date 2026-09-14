@@ -5,6 +5,7 @@
 
 #include "battery_bridge.h"
 #include "bsp_display.h"
+#include "button_bridge.h"
 #include "display_bridge.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
@@ -68,6 +69,14 @@ void app_main(void) {
     // possibly-slow first CW2017 SOC computation and then polls at 1 Hz.
     ai_passport_battery_bridge_init();
 
+    // Physical buttons last: UP/DOWN/OK only enqueue volume/mute commands
+    // onto the already-running music stream, so they may also come up when
+    // music failed (the commands then safely no-op). A button failure only
+    // disables the controls; the demo and music keep running.
+    if (ai_passport_button_bridge_init() != ESP_OK) {
+        ESP_LOGW(TAG, "Continuing without button controls");
+    }
+
     uint64_t frames = 0;
     bool first_frame_logged = false;
     uint64_t missed_deadlines = 0;
@@ -101,10 +110,12 @@ void app_main(void) {
         if (elapsed_us >= STATS_PERIOD_US) {
             ESP_LOGI(TAG,
                      "frames=%" PRIu64 " missed_deadlines=%" PRIu64
+                     " dropped_cmds=%" PRIu32
                      " avg_update_us=%" PRId64 " avg_draw_us=%" PRId64
                      " avg_present_us=%" PRId64 " avg_frame_us=%" PRId64
                      " achieved_fps_x100=%" PRId64,
                      frames, missed_deadlines,
+                     ai_passport_music_dropped_commands(),
                      total_update_us / (int64_t)frames,
                      total_draw_us / (int64_t)frames,
                      total_present_us / (int64_t)frames,

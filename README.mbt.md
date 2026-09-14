@@ -12,7 +12,7 @@ colmugx/ai-passport SDK
  Web runtime   Device runtime
 ```
 
-The browser preview (`src/web` + `web/`) presents the SDK's rasterized 120×160 RGB565 frame through `FrameView` onto an HTML Canvas at 4x scale and plays the authored music file through WebAudio. It is a development preview, not a hardware emulator. The ESP32-C3 foundation has already shown the MoonBit probe and RGB smoke screen on a physical FoloToy board. The T4.0-B firmware builds the same root Forest Walk application for device presentation, and T4.1-A adds the real CW2017 battery HUD and flash-resident looping music; live T4.1 device behavior still needs hardware measurement. Device buttons remain future work. Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
+The browser preview (`src/web` + `web/`) presents the SDK's rasterized 120×160 RGB565 frame through `FrameView` onto an HTML Canvas at 4x scale and plays the authored music file through WebAudio. It is a development preview, not a hardware emulator. The ESP32-C3 foundation has already shown the MoonBit probe and RGB smoke screen on a physical FoloToy board. The T4.0-B firmware builds the same root Forest Walk application for device presentation, T4.1-A adds the real CW2017 battery HUD and flash-resident looping music (audio playback confirmed on the board), and T4.1-B adds the physical volume buttons through the official BSP ADC button driver (UP volume+, DOWN volume−, OK mute; startup volume 80%). Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
 
 ## ESP32-C3 Forest Walk firmware
 
