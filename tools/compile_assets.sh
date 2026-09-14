@@ -4,3 +4,4 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 python3 tools/compile_sprite.py
+python3 tools/compile_layers.py

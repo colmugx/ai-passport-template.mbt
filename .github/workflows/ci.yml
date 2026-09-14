@@ -21,7 +21,7 @@ jobs:
           test ! -e moon.work
           moon update
 
-      - name: Verify generated sprite source
+      - name: Verify generated asset sources
         run: |
           ./tools/compile_assets.sh
           git diff --exit-code

@@ -26,7 +26,10 @@ pub struct State {
   priv paused : Bool
   priv song : @music.Song
   priv walker_sheet : @graphics.SpriteSheet // built once in State::new
-  priv tree_sheets : Array[@graphics.SpriteSheet] // built once in State::new
+  // The three authored parallax layers, built once in State::new.
+  priv far_layer : @generated.IndexedLayer
+  priv world_layer : @generated.IndexedLayer
+  priv foreground_layer : @generated.IndexedLayer
 }
 
 ///|
@@ -112,11 +115,9 @@ pub fn State::new() -> State {
     paused: false,
     song,
     walker_sheet: build_fairy_walk_right_sheet(),
-    tree_sheets: [
-      build_tree_sheet(width=8, height=14),
-      build_tree_sheet(width=10, height=16),
-      build_tree_sheet(width=12, height=20),
-    ],
+    far_layer: build_forest_far_layer(),
+    world_layer: build_forest_world_layer(),
+    foreground_layer: build_forest_foreground_layer(),
   }
 }
 

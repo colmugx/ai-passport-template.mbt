@@ -46,7 +46,7 @@ pub fn State::update(
       animation_frames / WALK_FRAME_HOLD % 6,
     )
   }
-  // Sprite sheets and the immutable song are shared between snapshots.
+  // Layer data and the immutable song are shared between snapshots.
   {
     frame,
     scroll,
@@ -56,6 +56,8 @@ pub fn State::update(
     paused,
     song: self.song,
     walker_sheet: self.walker_sheet,
-    tree_sheets: self.tree_sheets,
+    far_layer: self.far_layer,
+    world_layer: self.world_layer,
+    foreground_layer: self.foreground_layer,
   }
 }

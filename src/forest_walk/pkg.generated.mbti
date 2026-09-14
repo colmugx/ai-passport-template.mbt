@@ -8,6 +8,11 @@ import {
 }
 
 // Values
+pub fn far_scroll_offset(Int) -> Int
+
+pub fn foreground_scroll_offset(Int) -> Int
+
+pub fn ping_pong_x(Int, Int) -> Int
 
 // Errors
 

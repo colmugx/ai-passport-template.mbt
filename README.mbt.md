@@ -48,15 +48,24 @@ Forest Walk State::draw
 
 The application updates at a fixed 30 Hz simulation rate driven by `requestAnimationFrame` (elapsed time is accumulated and capped after tab suspension); drawing happens every animation frame. Keyboard events map `ArrowUp`/`ArrowDown`/`Space`/`Enter` to SDK `@input` buttons with press/release edges; `InputState::advance` is called exactly once per simulation step. The fairy advances one of its six poses every four active simulation frames, completing a walk cycle in about 0.8 seconds. An independent WebAudio scheduler renders 512-sample, 16 kHz mono PCM blocks from the SDK `Player` and keeps a short playback queue. Once sound starts, the runtime supplies the beat at the WebAudio playback head, derived from elapsed audio-context sample time and the song tempo; it does not use the Player's render-ahead beat. Pausing or hiding the tab suspends WebAudio so the audible timeline stays frozen.
 
-## Fairy sprite asset
+## Forest Walk assets
 
-The committed source art is `assets/forest_walk/fairy_walk_right.png` (six horizontal 28×32 frames). To regenerate the compact MoonBit palette and pixel indices after editing the PNG, run:
+The committed source art lives in `assets/forest_walk/`:
+
+| File | Role |
+| --- | --- |
+| `fairy_walk_right.png` | six horizontal 28×32 fairy walk frames |
+| `forest_far.png` | far mist and distant forest silhouettes (1/8 world speed) |
+| `forest_world.png` | forest and the walking road the fairy stands on (world speed) |
+| `forest_foreground.png` | dark foreground foliage that occludes the fairy (3/2 world speed) |
+
+To regenerate the compact MoonBit sources after editing any PNG, run:
 
 ```sh
 ./tools/compile_assets.sh
 ```
 
-The compiler uses Python 3's standard library and rejects partially transparent pixels because the SDK sprite sheet supports only opaque or fully transparent colors. The generated source is committed at `src/forest_walk/generated/fairy_walk_right.mbt`; browser and future device builds compile that source and do not load the PNG at runtime.
+The compilers use Python 3's standard library only. Each scenery layer is resized with nearest-neighbour sampling to 240×160, alpha is thresholded at build time (below 128 becomes fully transparent), and the opaque colors are reduced to at most 128 with a deterministic median-cut quantizer. The runtime never loads a PNG: browser and future device builds compile the generated sources under `src/forest_walk/generated/`, which carry one small palette plus one-byte indices per layer. Scenery scrolls with ping-pong tiling (`A | mirror(A) | ...`), so no mirrored copy is stored and no seamless authoring is required. Running the compiler twice without changing the assets produces byte-identical output, which CI verifies with `git diff --exit-code`.
 
 ## Develop
 
@@ -75,4 +84,4 @@ moon build --target js
 git diff --exit-code
 ```
 
-The last command checks that generated sprite source, API information, and formatting are committed. If you create your own application from this GitHub Template, you may rename the MoonBit module in `moon.mod` before publishing it under your own name.
+The last command checks that generated asset sources, API information, and formatting are committed. If you create your own application from this GitHub Template, you may rename the MoonBit module in `moon.mod` before publishing it under your own name.

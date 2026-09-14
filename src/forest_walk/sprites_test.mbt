@@ -38,7 +38,7 @@ test "fairy sheet keeps transparent pixels transparent in all six frames" {
 }
 
 ///|
-test "draw survives a full tree wrap while walking on both canvases" {
+test "draw survives repeated layer wraps while walking on both canvases" {
   let input = @input.InputState::new()
   // Three Up edges ramp the speed to its cap.
   input.press(@input.Up)
