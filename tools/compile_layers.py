@@ -5,9 +5,9 @@ PNG files are authoring assets only: browser and future device builds consume
 the generated MoonBit source, never the PNG at runtime. For each scenery
 layer this script
 
-1. decodes the authoring PNG (truecolor RGB or RGBA, see png_decode),
-2. resizes it to the fixed 240x160 layer size with nearest-neighbour
-   sampling,
+1. decodes the authoring PNG (RGB, indexed, or RGBA; see png_decode),
+2. takes a deterministic 3:2 cover crop (bottom-anchored for the road in
+   forest_world), then resizes it to 240x160 with nearest-neighbour sampling,
 3. thresholds alpha at 128 for layers that support transparency
    (alpha < 128 -> transparent, alpha >= 128 -> opaque),
 4. reduces the opaque colors to at most 128 with a deterministic median-cut
@@ -76,21 +76,41 @@ LAYERS = [
 ]
 
 
+def cover_crop(
+    source_width: int, source_height: int, *, bottom_anchor: bool
+) -> tuple[int, int, int, int]:
+    """Largest exact 3:2 rectangle fitting the source, with a stable anchor."""
+    scale = min(source_width // 3, source_height // 2)
+    if scale < 1:
+        raise ValueError(
+            f"source {source_width}x{source_height} is too small for a 3:2 crop"
+        )
+    crop_width, crop_height = 3 * scale, 2 * scale
+    crop_x = (source_width - crop_width) // 2
+    crop_y = (
+        source_height - crop_height
+        if bottom_anchor
+        else (source_height - crop_height) // 2
+    )
+    return crop_x, crop_y, crop_width, crop_height
+
+
 def resize_nearest(
-    rgba: bytes, source_width: int, source_height: int
-) -> tuple[bytes, int, int]:
-    """Nearest-neighbour resize to LAYER_WIDTH x LAYER_HEIGHT."""
+    rgba: bytes, source_width: int, crop: tuple[int, int, int, int]
+) -> bytes:
+    """Nearest-neighbour resize of an exact 3:2 source rectangle."""
+    crop_x, crop_y, crop_width, crop_height = crop
     out = bytearray(LAYER_WIDTH * LAYER_HEIGHT * 4)
     for y in range(LAYER_HEIGHT):
-        source_y = ((2 * y + 1) * source_height) // (2 * LAYER_HEIGHT)
+        source_y = crop_y + ((2 * y + 1) * crop_height) // (2 * LAYER_HEIGHT)
         source_row = source_y * source_width
         out_row = y * LAYER_WIDTH
         for x in range(LAYER_WIDTH):
-            source_x = ((2 * x + 1) * source_width) // (2 * LAYER_WIDTH)
+            source_x = crop_x + ((2 * x + 1) * crop_width) // (2 * LAYER_WIDTH)
             offset = (source_row + source_x) * 4
             destination = (out_row + x) * 4
             out[destination : destination + 4] = rgba[offset : offset + 4]
-    return bytes(out), LAYER_WIDTH, LAYER_HEIGHT
+    return bytes(out)
 
 
 def median_cut_palette(
@@ -205,6 +225,7 @@ def compile_indices(
 def render_moonbit(
     spec: LayerSpec,
     source_size: tuple[int, int],
+    crop: tuple[int, int, int, int],
     palette: list[tuple[int, int, int]],
     indices: bytes,
     quantizer: str,
@@ -222,8 +243,9 @@ def render_moonbit(
         "//",
         f"// {spec.description}.",
         "// "
-        f"{LAYER_WIDTH}x{LAYER_HEIGHT} output, nearest-neighbour resized "
-        f"from {source_size[0]}x{source_size[1]}.",
+        f"Source {source_size[0]}x{source_size[1]}; cover crop "
+        f"x={crop[0]}, y={crop[1]}, w={crop[2]}, h={crop[3]}; "
+        f"nearest-neighbour output {LAYER_WIDTH}x{LAYER_HEIGHT}.",
         f"// {len(palette)} opaque colors ({quantizer}, max {MAX_OPAQUE_COLORS}).",
     ]
     if spec.transparent:
@@ -268,7 +290,10 @@ def render_moonbit(
 
 def compile_layer(spec: LayerSpec) -> str:
     source_width, source_height, rgba = read_rgba_png(spec.source)
-    resized, _, _ = resize_nearest(rgba, source_width, source_height)
+    crop = cover_crop(
+        source_width, source_height, bottom_anchor=spec.name == "forest_world"
+    )
+    resized = resize_nearest(rgba, source_width, crop)
 
     color_counts: dict[tuple[int, int, int], int] = {}
     for pixel in range(LAYER_WIDTH * LAYER_HEIGHT):
@@ -292,7 +317,7 @@ def compile_layer(spec: LayerSpec) -> str:
             f"{transparent_count} pixels with alpha below {ALPHA_THRESHOLD}"
         )
     generated = render_moonbit(
-        spec, (source_width, source_height), palette, indices, quantizer
+        spec, (source_width, source_height), crop, palette, indices, quantizer
     )
 
     output = GENERATED / f"{spec.name}.mbt"
@@ -300,7 +325,8 @@ def compile_layer(spec: LayerSpec) -> str:
     if not output.exists() or output.read_text(encoding="utf-8") != generated:
         output.write_text(generated, encoding="utf-8", newline="\n")
     print(
-        f"{spec.name}: source {source_width}x{source_height} -> "
+        f"{spec.name}: source {source_width}x{source_height}, cover crop "
+        f"x={crop[0]} y={crop[1]} w={crop[2]} h={crop[3]} -> "
         f"{LAYER_WIDTH}x{LAYER_HEIGHT}, opaque {opaque}, "
         f"transparent {transparent_count}, palette {len(palette)} "
         f"({quantizer}), generated {output.relative_to(ROOT)} "

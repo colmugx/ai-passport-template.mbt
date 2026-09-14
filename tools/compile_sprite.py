@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Compile the Forest Walk RGBA PNG into a frame-major MoonBit SpriteSheet.
+"""Compile the Forest Walk PNG into a frame-major MoonBit SpriteSheet.
 
-Only Python's standard library is required. The supported source format is
-8-bit, non-interlaced RGBA PNG; unsupported PNG formats fail explicitly.
+Only Python's standard library is required. The shared decoder accepts 8-bit,
+non-interlaced RGB, indexed, and RGBA PNG; partial alpha fails explicitly.
 """
 
 from __future__ import annotations

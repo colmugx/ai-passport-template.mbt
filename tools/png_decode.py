@@ -2,9 +2,9 @@
 """Shared minimal PNG reader for the Forest Walk asset compilers.
 
 Only Python's standard library is required. The supported source format is
-8-bit, non-interlaced PNG in color types 2 (truecolor RGB) or 6 (truecolor
-RGBA); anything else fails explicitly. Decoded pixels are always returned as
-RGBA bytes, row-major, with alpha 255 for RGB sources.
+8-bit, non-interlaced PNG in color types 2 (truecolor RGB), 3 (indexed with
+PLTE and optional tRNS), or 6 (truecolor RGBA); anything else fails
+explicitly. Decoded pixels are always returned as row-major RGBA bytes.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import zlib
 from pathlib import Path
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-SUPPORTED_COLOR_TYPES = {2: 3, 6: 4}  # color type -> bytes per pixel
+SUPPORTED_COLOR_TYPES = {2: 3, 3: 1, 6: 4}  # color type -> bytes per pixel
 
 
 def paeth(left: int, above: int, upper_left: int) -> int:
@@ -36,6 +36,9 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
     offset = len(PNG_SIGNATURE)
     dimensions: tuple[int, int] | None = None
     bytes_per_pixel = 0
+    color_type = -1
+    palette: list[tuple[int, int, int]] | None = None
+    palette_alpha: bytes | None = None
     idat = bytearray()
     saw_end = False
     while offset < len(data):
@@ -68,14 +71,32 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
                 )
             if color_type not in SUPPORTED_COLOR_TYPES:
                 raise ValueError(
-                    f"{path}: expected truecolor RGB (2) or RGBA (6) PNG; got "
+                    f"{path}: expected RGB (2), indexed (3), or RGBA (6) PNG; got "
                     f"color_type={color_type}"
                 )
             bytes_per_pixel = SUPPORTED_COLOR_TYPES[color_type]
             dimensions = (width, height)
+        elif kind == b"PLTE":
+            if dimensions is None or idat or palette is not None:
+                raise ValueError(f"{path}: PLTE must occur once before IDAT")
+            if length == 0 or length % 3 != 0 or length > 256 * 3:
+                raise ValueError(f"{path}: invalid PLTE length {length}")
+            palette = [tuple(payload[i : i + 3]) for i in range(0, length, 3)]
+        elif kind == b"tRNS" and color_type == 3:
+            if palette is None or idat or palette_alpha is not None:
+                raise ValueError(
+                    f"{path}: indexed tRNS must occur once after PLTE and before IDAT"
+                )
+            if length == 0 or length > len(palette):
+                raise ValueError(f"{path}: invalid indexed tRNS length {length}")
+            palette_alpha = payload
+        elif kind == b"tRNS":
+            raise ValueError(f"{path}: tRNS is supported only for indexed PNGs")
         elif kind == b"IDAT":
             if dimensions is None:
                 raise ValueError(f"{path}: IDAT precedes IHDR")
+            if color_type == 3 and palette is None:
+                raise ValueError(f"{path}: indexed PNG has no PLTE before IDAT")
             idat.extend(payload)
         elif kind == b"IEND":
             if length != 0 or offset != len(data):
@@ -124,7 +145,7 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
         destination = y * width * 4
         if bytes_per_pixel == 4:
             rgba[destination : destination + row_bytes] = row
-        else:
+        elif bytes_per_pixel == 3:
             for x in range(width):
                 source = x * 3
                 target = destination + x * 4
@@ -132,5 +153,20 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
                 rgba[target + 1] = row[source + 1]
                 rgba[target + 2] = row[source + 2]
                 rgba[target + 3] = 255
+        else:
+            if palette is None:
+                raise ValueError(f"{path}: indexed PNG has no PLTE")
+            for x, index in enumerate(row):
+                if index >= len(palette):
+                    raise ValueError(
+                        f"{path}: invalid palette index {index} at x={x}, y={y}"
+                    )
+                target = destination + x * 4
+                rgba[target : target + 3] = bytes(palette[index])
+                rgba[target + 3] = (
+                    palette_alpha[index]
+                    if palette_alpha is not None and index < len(palette_alpha)
+                    else 255
+                )
         previous = row
     return width, height, bytes(rgba)
