@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "battery_bridge.h"
 #include "bsp_display.h"
 #include "display_bridge.h"
 #include "esp_err.h"
@@ -11,6 +12,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "music_stream.h"
 
 extern void moonbit_runtime_init(int argc, char **argv);
 extern void moonbit_init(void);
@@ -50,6 +52,21 @@ void app_main(void) {
     log_heap("before_forest_init");
     (void)ai_passport_mbt_forest_init();
     log_heap("after_forest_init");
+
+    // Music first: the ES8311 init is quick and also brings up the shared
+    // BSP I2C bus, so the battery task below finds it ready. One FreeRTOS
+    // task owns every PCM write; the frame loop never touches audio.
+    log_heap("before_audio_init");
+    const esp_err_t music_err = ai_passport_music_start();
+    if (music_err != ESP_OK) {
+        ESP_LOGE(TAG, "Music unavailable (%s); running silent",
+                 esp_err_to_name(music_err));
+    }
+    log_heap(music_err == ESP_OK ? "after_audio_init" : "after_audio_init_failed");
+
+    // Battery never blocks the frame loop: the bridge task does the
+    // possibly-slow first CW2017 SOC computation and then polls at 1 Hz.
+    ai_passport_battery_bridge_init();
 
     uint64_t frames = 0;
     bool first_frame_logged = false;

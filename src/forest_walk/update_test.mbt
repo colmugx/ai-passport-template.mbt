@@ -29,23 +29,21 @@ test "walking visits all six fairy poses every 24 simulation frames" {
 }
 
 ///|
-test "frame update does not advance audio transport" {
+test "frame update is independent of the audible beat value" {
   let state = State::new()
-  let player = @audio.Player::new(song=state.song())
-  let mut next = state
-  for _ in 0..<40 {
-    next = next.update(beat=player.beat())
+  let mut with_beats = state
+  let mut without_beats = state
+  for beat in 0..<40 {
+    with_beats = with_beats.update(beat~)
+    without_beats = without_beats.update(beat=0)
   }
-  assert_eq(player.position_ticks(), 0)
-  assert_eq(player.beat(), 0)
-  assert_eq(next.scroll(), 40)
-  assert_eq(next.walker_frame(), 4)
-  // Only an explicit audio callback render moves the external player.
-  player.render(out=FixedArray::make(16000, 0))
-  assert_true(player.position_ticks() > 0)
-  let after_audio = next.update(beat=player.beat())
-  assert_eq(after_audio.walker_frame(), 4)
-  assert_eq(next.update(beat=0).walker_frame(), after_audio.walker_frame())
+  // The pose follows the simulation frame counter only; beat snapshots ride
+  // along for a future audible phase and never alter the walk.
+  assert_eq(with_beats.scroll(), 40)
+  assert_eq(with_beats.walker_frame(), 4)
+  assert_eq(with_beats.frame(), without_beats.frame())
+  assert_eq(with_beats.scroll(), without_beats.scroll())
+  assert_eq(with_beats.walker_frame(), without_beats.walker_frame())
 }
 
 ///|

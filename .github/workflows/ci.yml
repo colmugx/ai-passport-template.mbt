@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install MoonBit
         run: |
@@ -26,9 +28,14 @@ jobs:
           ./tools/compile_assets.sh
           git diff --exit-code
 
-      - name: Test MoonBit C capture wrapper
+      - name: Convert and verify authored device music
         run: |
-          python3 -m unittest tools/test_moon_cc_capture.py
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+          python3 tools/compile_audio.py
+
+      - name: Test Python asset and audio tooling
+        run: |
+          python3 -m unittest discover -s tools -p "test_*.py"
 
       - name: Check and test native
         run: |

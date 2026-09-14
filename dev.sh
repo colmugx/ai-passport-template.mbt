@@ -27,6 +27,18 @@ moon build --target js --release
 #    never committed).
 mkdir -p web/dist
 cp _build/js/release/build/web/web.js web/dist/web.js
+# The authored music file (exactly one of forest_walk.wav/.mp3) is served
+# under a fixed extensionless name; the browser decodes it natively.
+music_source="$(ls assets/audio/forest_walk.wav assets/audio/forest_walk.mp3 2>/dev/null | head -n 1)"
+if [ -z "$music_source" ]; then
+  echo "error: no authored music in assets/audio (expected forest_walk.wav or .mp3)." >&2
+  exit 1
+fi
+if [ "$(ls assets/audio/forest_walk.wav assets/audio/forest_walk.mp3 2>/dev/null | wc -l)" -ne 1 ]; then
+  echo "error: ambiguous authored music; keep exactly one of forest_walk.wav/.mp3." >&2
+  exit 1
+fi
+cp "$music_source" web/dist/music
 
 # 3. Serve the browser shell; open the printed URL.
 echo

@@ -112,7 +112,6 @@ fn state_at_scroll(scroll~ : Int, walker_frame~ : Int) -> State {
     frame: 1,
     scroll,
     walker_frame,
-    song: showcase_song(),
     walker_sheet: build_fairy_walk_right_sheet(),
     far_layer: build_forest_far_layer(),
     world_layer: build_forest_world_layer(),

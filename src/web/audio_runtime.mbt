@@ -1,16 +1,25 @@
 ///|
-/// The renderer reads which sample is audible, not the render-ahead Player's
-/// beat. AudioContext.currentTime freezes during visibility suspension.
+/// URL of the authored music file inside the preview bundle. `dev.sh`
+/// copies the single authored WAV or MP3 to this fixed name, so the runtime
+/// needs no knowledge of which authoring format was chosen.
+const MUSIC_ASSET_URL : String = "dist/music"
+
+///|
+/// The renderer reads which part of the track is audible, not a render-ahead
+/// clock. AudioContext.currentTime freezes during visibility suspension, so
+/// the beat freezes with the audible music.
 fn audible_beat(rt : Runtime) -> Int {
   if !rt.sound_unlocked {
     return rt.beat.beat()
   }
   match rt.audio_context {
-    Some(ctx) =>
-      playback_beat(
-        rt.timeline.played_samples(js_audio_current_time(ctx)),
-        rt.state.song().tempo().dotted_quarter_bpm,
+    Some(ctx) => {
+      let elapsed = js_audio_current_time(ctx) - rt.music_start_time
+      music_beat(
+        loop_position(elapsed, rt.music_duration),
+        @forest_walk.MUSIC_DOTTED_QUARTER_BPM,
       )
+    }
     None => abort("unlocked sound has no AudioContext")
   }
 }
@@ -54,61 +63,38 @@ fn audio_error(rt : Runtime, message : String) -> Unit {
 }
 
 ///|
-/// Only this timer callback may ask the SDK Player for PCM. It keeps around
-/// 120 ms of 16 kHz mono audio scheduled, reusing the same 512-sample buffer.
-/// A missed timer leaves silence, logs an underrun, and resumes at the next
-/// unrendered Player sample instead of skipping the song forward.
-fn audio_scheduler_tick(rt : Runtime) -> Unit {
-  if rt.audio_failed || !rt.sound_unlocked || rt.hidden {
-    return
-  }
-  match rt.audio_context {
-    Some(ctx) => {
-      let context_state = js_audio_state(ctx)
-      let running = context_state == "running"
-      if !running {
-        if context_state != "suspended" {
-          audio_error(rt, "AudioContext stopped unexpectedly: \{context_state}")
-        }
-        return
-      }
-      let now = js_audio_current_time(ctx)
-      if rt.timeline.started &&
-        rt.timeline.next_start_time >= now &&
-        rt.timeline.next_start_time - now < AUDIO_SCHEDULING_SAFETY_SECONDS {
-        return
-      }
-      let late = if rt.timeline.started {
-        now - rt.timeline.next_start_time
-      } else {
-        0.0
-      }
-      if rt.timeline.prepare(now) {
-        js_log_audio_underrun(late)
-      }
-      let horizon = now + AUDIO_LOOKAHEAD_SECONDS
-      while should_schedule_chunk(
-              running,
-              rt.hidden,
-              rt.timeline.next_start_time,
-              horizon,
-            ) {
-        rt.player.render(out=rt.pcm)
-        let error = js_schedule_pcm16(ctx, rt.pcm, rt.timeline.next_start_time)
-        if error != "" {
-          audio_error(rt, error)
-          return
-        }
-        rt.timeline.mark_scheduled()
-      }
-    }
-    None => abort("unlocked sound has no AudioContext")
-  }
+/// Fetches the authored music file and starts it as a native looping
+/// AudioBufferSourceNode. The browser decodes the authored WAV/MP3 itself;
+/// no PCM synthesis runs in the preview. The audible beat anchors to the
+/// context time this source started.
+fn start_music(rt : Runtime, ctx : WebAudioContext) -> Unit {
+  js_fetch_music_binary(
+    MUSIC_ASSET_URL,
+    data => {
+      js_decode_music(
+        ctx,
+        data,
+        buffer => {
+          let (start_time, duration) = js_start_music_loop(ctx, buffer)
+          rt.music_start_time = start_time
+          rt.music_duration = duration
+          rt.sound_unlocked = true
+          rt.unlock_pending = false
+          if rt.hidden {
+            sync_audio_context(rt)
+          }
+          refresh_sound_ui(rt)
+        },
+        error => audio_error(rt, "music decode failed: \{error}"),
+      )
+    },
+    error => audio_error(rt, "music asset fetch failed: \{error}"),
+  )
 }
 
 ///|
-/// The context's own time stops while the page is hidden, preserving queued
-/// sources and the audible beat until playback resumes.
+/// The context's own time stops while the page is hidden, preserving the
+/// looping source and the audible beat until playback resumes.
 fn sync_audio_context(rt : Runtime) -> Unit {
   if rt.audio_failed || !rt.sound_unlocked {
     return
@@ -142,8 +128,8 @@ fn sync_audio_context(rt : Runtime) -> Unit {
 
 ///|
 /// AudioContext construction and resume happen in this explicit click
-/// gesture. The Song/Player were created at sample zero but have rendered no
-/// PCM, so the first scheduled chunk always starts at the song beginning.
+/// gesture. The authored track starts from its beginning once the context is
+/// running and the file has been decoded.
 fn enable_sound(rt : Runtime) -> Unit {
   if rt.sound_unlocked || rt.unlock_pending {
     return
@@ -166,16 +152,7 @@ fn enable_sound(rt : Runtime) -> Unit {
             )
             return
           }
-          rt.sound_unlocked = true
-          rt.unlock_pending = false
-          if !rt.scheduler_started {
-            rt.scheduler_started = true
-            js_start_audio_scheduler(20, () => audio_scheduler_tick(rt))
-          }
-          if rt.hidden {
-            sync_audio_context(rt)
-          }
-          refresh_sound_ui(rt)
+          start_music(rt, ctx)
         },
         error => audio_error(rt, error),
       )

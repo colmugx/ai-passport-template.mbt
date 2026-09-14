@@ -9,8 +9,8 @@ const BATTERY_PERCENT : Int = 82
 
 ///|
 /// Everything the browser runtime owns: the SDK logical canvas and Forest
-/// Walk scene, the 30 Hz accumulator, the visual beat
-/// clock, the SDK Player and WebAudio scheduling, and presentation handles.
+/// Walk scene, the 30 Hz accumulator, the visual beat clock, the WebAudio
+/// context and the looping authored music, and presentation handles.
 /// Browser APIs stay in this package;
 /// `forest_walk` never sees them.
 priv struct Runtime {
@@ -18,15 +18,15 @@ priv struct Runtime {
   mut state : @forest_walk.State
   beat : BeatClock
   stepper : Stepper
-  player : @audio.Player
-  pcm : FixedArray[Int]
-  timeline : PlaybackTimeline
   mut audio_context : WebAudioContext?
+  // Audible music state: the context time the looping source started and
+  // the authored track's duration anchor the playback-head beat.
+  mut music_start_time : Double
+  mut music_duration : Double
   mut sound_unlocked : Bool
   mut audio_failed : Bool
   mut audio_error_message : String?
   mut unlock_pending : Bool
-  mut scheduler_started : Bool
   mut hidden : Bool
   // Reused scratch buffers for the FrameView -> RGBA conversion.
   row : FixedArray[Int]
@@ -41,9 +41,9 @@ priv struct Runtime {
 /// accumulator, runs the due 30 Hz simulation steps, then rasterizes and
 /// presents the current state.
 ///
-/// Before sound unlock the T1 visual beat clock keeps the preview moving.
-/// Afterwards, only the WebAudio playback head drives the pose. This frame
-/// path never renders PCM or advances the SDK Player.
+/// Before sound unlock the visual beat clock keeps the preview moving.
+/// Afterwards, only the WebAudio playback head of the looping authored
+/// track drives the pose. This frame path never touches audio transport.
 fn frame_tick(rt : Runtime, now : Double) -> Unit {
   // rAF timestamps are milliseconds; the simulation and beat clocks run on
   // seconds.
@@ -63,9 +63,9 @@ fn frame_tick(rt : Runtime, now : Double) -> Unit {
 
 ///|
 /// Browser entry point, run when the page script loads: builds the logical
-/// 120x160 canvas and the fixed-speed ambient scene, reads the
-/// showcase song's dotted-quarter tempo for the pre-audio visual clock,
-/// constructs the runtime-owned Player, and starts the frame loop.
+/// 120x160 canvas and the fixed-speed ambient scene, tunes the pre-audio
+/// visual clock to the application's music tempo, and starts the frame
+/// loop. Music stays off until the explicit user gesture.
 fn main {
   let canvas = @graphics.Canvas::logical()
   let state = @forest_walk.State::new()
@@ -77,18 +77,16 @@ fn main {
     canvas,
     state,
     beat: BeatClock::new(
-      dotted_quarter_bpm=state.song().tempo().dotted_quarter_bpm,
+      dotted_quarter_bpm=@forest_walk.MUSIC_DOTTED_QUARTER_BPM,
     ),
     stepper: Stepper::new(),
-    player: @audio.Player::new(song=state.song()),
-    pcm: FixedArray::make(AUDIO_CHUNK_SAMPLES, 0),
-    timeline: PlaybackTimeline::new(),
     audio_context: None,
+    music_start_time: 0.0,
+    music_duration: 0.0,
     sound_unlocked: false,
     audio_failed: false,
     audio_error_message: None,
     unlock_pending: false,
-    scheduler_started: false,
     hidden: js_document_hidden(),
     row: FixedArray::make(width, 0),
     rgba: FixedArray::make(width * height * 4, 0),

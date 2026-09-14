@@ -62,9 +62,11 @@ pub fn State::draw(
     scroll_x=foreground_scroll_offset(scroll),
   )
   let battery_text = battery_label(battery_percent)
+  // Four logical pixels of right margin keep the text clear of the four
+  // 4x4 rounded-corner occlusion regions while y=4 clears the top strip.
   canvas.text(
     text=battery_text,
-    x=(canvas.width() - @graphics.text_width(text=battery_text) - 2).max(0),
+    x=(canvas.width() - @graphics.text_width(text=battery_text) - 4).max(0),
     y=4,
     color=@core.Color::rgb(r=31, g=51, b=53),
   )

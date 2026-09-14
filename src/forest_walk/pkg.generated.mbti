@@ -3,10 +3,11 @@ package "colmugx/ai-passport-template/forest_walk"
 
 import {
   "colmugx/ai-passport/graphics",
-  "colmugx/ai-passport/music",
 }
 
 // Values
+pub const MUSIC_DOTTED_QUARTER_BPM : Int = 76
+
 pub fn far_scroll_offset(Int) -> Int
 
 pub fn foreground_scroll_offset(Int) -> Int
@@ -23,7 +24,6 @@ pub fn State::draw(Self, canvas~ : @graphics.Canvas, battery_percent~ : Int?) ->
 pub fn State::frame(Self) -> Int
 pub fn State::new() -> Self
 pub fn State::scroll(Self) -> Int
-pub fn State::song(Self) -> @music.Song
 pub fn State::update(Self, beat~ : Int) -> Self
 pub fn State::walker_frame(Self) -> Int
 pub fn State::walker_sheet(Self) -> @graphics.SpriteSheet

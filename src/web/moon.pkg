@@ -3,8 +3,6 @@ supported_targets = "js"
 import {
   "colmugx/ai-passport-template/forest_walk",
   "colmugx/ai-passport/graphics",
-  "colmugx/ai-passport/music",
-  "colmugx/ai-passport/audio",
 }
 
 import {

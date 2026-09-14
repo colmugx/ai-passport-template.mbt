@@ -46,7 +46,10 @@ pub fn forest_update() -> Unit {
 #export_name("ai_passport_mbt_forest_draw")
 pub fn forest_draw() -> Unit {
   let scene = require_scene()
-  scene.state.draw(canvas=scene.canvas, battery_percent=None)
+  scene.state.draw(
+    canvas=scene.canvas,
+    battery_percent=device_battery_percent(),
+  )
 }
 
 ///|

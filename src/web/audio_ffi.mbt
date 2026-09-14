@@ -1,8 +1,17 @@
-// Browser-only WebAudio adapter. The Player and timing policy live in MoonBit;
-// JS only owns opaque browser handles and the actual AudioBufferSourceNodes.
+// Browser-only WebAudio adapter. The music policy (gesture unlock,
+// suspend/resume, beat derivation) lives in MoonBit; JS only owns opaque
+// browser handles and the actual AudioBufferSourceNode.
 
 ///|
 type WebAudioContext
+
+///|
+/// ArrayBuffer holding the fetched authored music file.
+type WebAudioBytes
+
+///|
+/// Decoded AudioBuffer of the authored track.
+type WebAudioBuffer
 
 ///|
 extern "js" fn js_open_audio_context(
@@ -46,35 +55,53 @@ extern "js" fn js_audio_set_running(
   #| }
 
 ///|
-/// Schedule exactly one mono SDK PCM16 block at its requested context time.
-/// WebAudio resamples this 16 kHz content to the physical device if needed.
-extern "js" fn js_schedule_pcm16(
-  ctx : WebAudioContext,
-  pcm : FixedArray[Int],
-  start_time : Double,
-) -> String =
-  #| (ctx, pcm, startTime) => {
-  #|   try {
-  #|     if (startTime < ctx.currentTime) throw new Error("PCM block was scheduled in the past");
-  #|     const buffer = ctx.createBuffer(1, pcm.length, 16000);
-  #|     const channel = buffer.getChannelData(0);
-  #|     for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 32768.0;
-  #|     const source = ctx.createBufferSource();
-  #|     source.buffer = buffer;
-  #|     source.connect(ctx.destination);
-  #|     source.start(startTime);
-  #|     return "";
-  #|   } catch (error) {
-  #|     return String(error);
-  #|   }
+/// Fetches the authored music asset as raw bytes. The browser performs no
+/// synthesis; whatever WAV/MP3 the author committed is served verbatim.
+extern "js" fn js_fetch_music_binary(
+  url : String,
+  on_data : (WebAudioBytes) -> Unit,
+  on_error : (String) -> Unit,
+) -> Unit =
+  #| (url, onData, onError) => {
+  #|   fetch(url)
+  #|     .then(response => {
+  #|       if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+  #|       return response.arrayBuffer();
+  #|     })
+  #|     .then(data => onData(data))
+  #|     .catch(error => onError(String(error)));
   #| }
 
 ///|
-extern "js" fn js_start_audio_scheduler(
-  interval_ms : Int,
-  tick : () -> Unit,
+/// Native browser decoding of the authored WAV/MP3 into an AudioBuffer.
+extern "js" fn js_decode_music(
+  ctx : WebAudioContext,
+  data : WebAudioBytes,
+  on_ready : (WebAudioBuffer) -> Unit,
+  on_error : (String) -> Unit,
 ) -> Unit =
-  #| (intervalMs, tick) => { setInterval(tick, intervalMs); }
+  #| (ctx, data, onReady, onError) => {
+  #|   ctx.decodeAudioData(data).then(onReady).catch(error => onError(String(error)));
+  #| }
+
+///|
+/// Starts the decoded track as a looping source connected to the output and
+/// reports (start context time, track duration). Native looping keeps the
+/// boundary gap-free; suspend/resume of the context pauses and resumes the
+/// same source without drift.
+extern "js" fn js_start_music_loop(
+  ctx : WebAudioContext,
+  buffer : WebAudioBuffer,
+) -> (Double, Double) =
+  #| (ctx, buffer) => {
+  #|   const source = ctx.createBufferSource();
+  #|   source.buffer = buffer;
+  #|   source.loop = true;
+  #|   source.connect(ctx.destination);
+  #|   const start = ctx.currentTime;
+  #|   source.start(start);
+  #|   return [start, buffer.duration];
+  #| }
 
 ///|
 extern "js" fn js_listen_enable_sound(handler : () -> Unit) -> Unit =
@@ -101,10 +128,6 @@ extern "js" fn js_document_hidden() -> Bool =
 ///|
 extern "js" fn js_listen_visibility(handler : (Bool) -> Unit) -> Unit =
   #| (handler) => document.addEventListener("visibilitychange", () => handler(document.hidden))
-
-///|
-extern "js" fn js_log_audio_underrun(seconds_late : Double) -> Unit =
-  #| (secondsLate) => console.warn("AI Passport audio scheduler underrun; restarting after silence", { secondsLate })
 
 ///|
 extern "js" fn js_log_audio_error(message : String) -> Unit =
