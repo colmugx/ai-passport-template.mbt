@@ -9,9 +9,6 @@ type DomContext2D
 type DomImageData
 
 ///|
-type DomEvent
-
-///|
 /// Current monotonic browser time in milliseconds (`performance.now()`).
 extern "js" fn js_now() -> Double =
   #| () => performance.now()
@@ -74,23 +71,3 @@ extern "js" fn js_start_frame_loop(tick : (Double) -> Unit) -> Unit =
   #|   };
   #|   requestAnimationFrame(loop);
   #| }
-
-///|
-extern "js" fn js_listen_keydown(handler : (DomEvent) -> Unit) -> Unit =
-  #| (handler) => document.addEventListener("keydown", handler)
-
-///|
-extern "js" fn js_listen_keyup(handler : (DomEvent) -> Unit) -> Unit =
-  #| (handler) => document.addEventListener("keyup", handler)
-
-///|
-extern "js" fn js_listen_blur(handler : () -> Unit) -> Unit =
-  #| (handler) => window.addEventListener("blur", handler)
-
-///|
-extern "js" fn js_event_code(event : DomEvent) -> String =
-  #| (event) => event.code
-
-///|
-extern "js" fn js_prevent_default(event : DomEvent) -> Unit =
-  #| (event) => event.preventDefault()

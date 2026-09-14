@@ -20,18 +20,3 @@ test "BeatClock floors elapsed time into whole beats" {
   clock.tick(beat_seconds(76) * 3)
   inspect(clock.beat(), content="4")
 }
-
-///|
-test "BeatClock freezes while paused and resumes from the same musical time" {
-  let clock = BeatClock::new(dotted_quarter_bpm=76)
-  clock.tick_active(beat_seconds(76) * 2, active=true)
-  inspect(clock.beat(), content="2")
-  // Paused: however long the pause lasts, the beat holds.
-  clock.tick_active(beat_seconds(76) * 10, active=false)
-  inspect(clock.beat(), content="2")
-  // Resumed: musical time continues from the frozen value.
-  clock.tick_active(beat_seconds(76) / 2, active=true)
-  inspect(clock.beat(), content="2")
-  clock.tick_active(beat_seconds(76) / 2, active=true)
-  inspect(clock.beat(), content="3")
-}

@@ -5,7 +5,7 @@ pub const SIMULATION_HZ : Double = 30.0
 
 ///|
 /// Upper bound on catch-up steps after a stall (tab suspension, debugger
-/// pause). At 30 Hz this lets at most 1/6 s of backlog run per frame.
+/// breakpoint). At 30 Hz this lets at most 1/6 s of backlog run per frame.
 const MAX_CATCHUP_STEPS : Int = 5
 
 ///|

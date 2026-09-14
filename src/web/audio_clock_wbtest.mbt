@@ -16,12 +16,11 @@ test "playback beat uses the supplied song tempo" {
 }
 
 ///|
-test "pause and visibility gate cannot request another Player chunk" {
-  assert_true(should_schedule_chunk(true, false, false, 1.0, 1.12))
-  assert_false(should_schedule_chunk(true, true, false, 1.0, 1.12))
-  assert_false(should_schedule_chunk(true, false, true, 1.0, 1.12))
-  assert_false(should_schedule_chunk(false, false, false, 1.0, 1.12))
-  assert_false(should_schedule_chunk(true, false, false, 1.12, 1.12))
+test "visibility and context state gate Player chunk requests" {
+  assert_true(should_schedule_chunk(true, false, 1.0, 1.12))
+  assert_false(should_schedule_chunk(true, true, 1.0, 1.12))
+  assert_false(should_schedule_chunk(false, false, 1.0, 1.12))
+  assert_false(should_schedule_chunk(true, false, 1.12, 1.12))
 }
 
 ///|

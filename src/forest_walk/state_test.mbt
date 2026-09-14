@@ -1,8 +1,6 @@
 ///|
-test "State::new starts walking, unpaused and with a four-voice 6/8 song" {
+test "State::new starts an ambient scene with a four-voice 6/8 song" {
   let state = State::new()
-  inspect(state.speed().level, content="1")
-  inspect(state.paused(), content="false")
   inspect(state.frame(), content="0")
   inspect(state.scroll(), content="0")
   inspect(state.walker_frame(), content="0")
@@ -12,9 +10,4 @@ test "State::new starts walking, unpaused and with a four-voice 6/8 song" {
   inspect(song.track_count(), content="4")
   inspect(song.meter().numerator, content="6")
   inspect(song.meter().denominator, content="8")
-}
-
-///|
-test "Speed::zero is the standing-still level" {
-  inspect(Speed::zero().level, content="0")
 }

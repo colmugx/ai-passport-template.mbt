@@ -9,15 +9,13 @@ const BATTERY_PERCENT : Int = 82
 
 ///|
 /// Everything the browser runtime owns: the SDK logical canvas and Forest
-/// Walk scene, keyboard edge routing, the 30 Hz accumulator, the visual beat
+/// Walk scene, the 30 Hz accumulator, the visual beat
 /// clock, the SDK Player and WebAudio scheduling, and presentation handles.
 /// Browser APIs stay in this package;
 /// `forest_walk` never sees them.
 priv struct Runtime {
   canvas : @graphics.Canvas
   mut state : @forest_walk.State
-  input : @input.InputState
-  keys : KeyState
   beat : BeatClock
   stepper : Stepper
   player : @audio.Player
@@ -39,30 +37,9 @@ priv struct Runtime {
 }
 
 ///|
-/// Wires DOM keydown/keyup into `press`/`release` edges on the shared input.
-/// Auto-repeat and stray keyups are filtered by `KeyState`; mapped keys
-/// prevent the browser default (page scrolling) on keydown. Edges are only
-/// consumed by `InputState::advance`, which the frame loop calls exactly once
-/// per simulation step.
-fn install_input(rt : Runtime) -> Unit {
-  js_listen_keydown(event => {
-    let code = js_event_code(event)
-    if map_key(code) is Some(_) {
-      js_prevent_default(event)
-    }
-    let _ = rt.keys.handle_keydown(code, rt.input)
-  })
-  js_listen_keyup(event => {
-    let _ = rt.keys.handle_keyup(js_event_code(event), rt.input)
-  })
-  js_listen_blur(() => rt.keys.release_all(rt.input))
-}
-
-///|
 /// One requestAnimationFrame tick: feeds the frame delta to the fixed-step
-/// accumulator, runs the due 30 Hz simulation steps (advancing the input
-/// edges exactly once per step), then rasterizes and presents the current
-/// state.
+/// accumulator, runs the due 30 Hz simulation steps, then rasterizes and
+/// presents the current state.
 ///
 /// Before sound unlock the T1 visual beat clock keeps the preview moving.
 /// Afterwards, only the WebAudio playback head drives the pose. This frame
@@ -73,16 +50,11 @@ fn frame_tick(rt : Runtime, now : Double) -> Unit {
   let dt = (now - rt.last_now) / 1000.0
   rt.last_now = now
   if !rt.sound_unlocked {
-    rt.beat.tick_active(dt, active=!rt.state.paused())
+    rt.beat.tick(dt)
   }
   let steps = rt.stepper.steps_due(dt)
   for _ in 0..<steps {
-    let was_paused = rt.state.paused()
-    rt.state = rt.state.update(input=rt.input, beat=audible_beat(rt))
-    rt.input.advance()
-    if rt.state.paused() != was_paused {
-      on_app_pause_changed(rt)
-    }
+    rt.state = rt.state.update(beat=audible_beat(rt))
   }
   rt.state.draw(canvas=rt.canvas, battery_percent=Some(BATTERY_PERCENT))
   convert_frame(view=rt.canvas.frame_view(), rgba=rt.rgba, row=rt.row)
@@ -91,7 +63,7 @@ fn frame_tick(rt : Runtime, now : Double) -> Unit {
 
 ///|
 /// Browser entry point, run when the page script loads: builds the logical
-/// 120x160 canvas and the initial scene (walking at speed 1), reads the
+/// 120x160 canvas and the fixed-speed ambient scene, reads the
 /// showcase song's dotted-quarter tempo for the pre-audio visual clock,
 /// constructs the runtime-owned Player, and starts the frame loop.
 fn main {
@@ -104,8 +76,6 @@ fn main {
   let rt : Runtime = {
     canvas,
     state,
-    input: @input.InputState::new(),
-    keys: KeyState::new(),
     beat: BeatClock::new(
       dotted_quarter_bpm=state.song().tempo().dotted_quarter_bpm,
     ),
@@ -126,7 +96,6 @@ fn main {
     image,
     last_now: js_now(),
   }
-  install_input(rt)
   install_audio(rt)
   js_start_frame_loop(ts => frame_tick(rt, ts))
 }

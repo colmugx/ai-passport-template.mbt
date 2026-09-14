@@ -10,9 +10,8 @@ pub fn beat_seconds(dotted_quarter_bpm : Int) -> Double {
 ///
 /// Before WebAudio is enabled, the walk cycle still needs a beat value. This
 /// clock integrates elapsed monotonic browser
-/// time into whole dotted-quarter beats at the song's tempo. The frame loop
-/// only feeds it while the scene is unpaused, so pausing freezes the beat and
-/// resuming continues from the same elapsed musical time.
+/// time into whole dotted-quarter beats at the song's tempo. The ambient
+/// scene keeps moving until WebAudio supplies an audible playback beat.
 ///
 /// This remains pre-audio preview timing. After sound unlock, the runtime
 /// derives the visible beat from WebAudio's audible playback head; the SDK
@@ -34,20 +33,6 @@ pub fn BeatClock::new(dotted_quarter_bpm~ : Int) -> BeatClock {
 pub fn BeatClock::tick(self : BeatClock, dt : Double) -> Unit {
   if dt > 0.0 {
     self.elapsed += dt
-  }
-}
-
-///|
-/// Adds `dt` seconds of musical time only while the scene is `active`
-/// (unpaused). Pausing freezes the clock and resuming continues from the same
-/// elapsed musical time.
-pub fn BeatClock::tick_active(
-  self : BeatClock,
-  dt : Double,
-  active~ : Bool,
-) -> Unit {
-  if active {
-    self.tick(dt)
   }
 }
 

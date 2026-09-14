@@ -14,17 +14,11 @@ test "draw runs clean on a small canvas, the logical canvas and a fairy-sized ca
 }
 
 ///|
-test "draw also handles walking and paused states" {
-  let input = @input.InputState::new()
-  input.press(@input.Up)
-  let moving = State::new().update(input~, beat=1)
+test "draw handles continuously walking states" {
+  let moving = State::new().update(beat=1).update(beat=2)
+  assert_eq(moving.scroll(), 2)
   moving.draw(canvas=@graphics.Canvas::logical(), battery_percent=Some(82))
-  // Fresh input snapshot with a pause edge for the paused scene.
-  let pause_input = @input.InputState::new()
-  pause_input.press(@input.Ok)
-  let paused = moving.update(input=pause_input, beat=2)
-  assert_true(paused.paused())
-  paused.draw(
+  moving.draw(
     canvas=@graphics.Canvas::new(width=64, height=80),
     battery_percent=None,
   )
@@ -38,7 +32,7 @@ test "battery HUD changes only the top-right pixels for known and unknown values
   state.draw(canvas=known, battery_percent=Some(82))
   state.draw(canvas=unknown, battery_percent=None)
   let mut changed = false
-  for y in 2..<7 {
+  for y in 4..<11 {
     let a = FixedArray::make(120, 0)
     let b = FixedArray::make(120, 0)
     assert_eq(known.frame_view().copy_rgb565_row(y~, out=a), 120)
@@ -51,4 +45,22 @@ test "battery HUD changes only the top-right pixels for known and unknown values
     }
   }
   assert_true(changed)
+}
+
+///|
+test "battery HUD leaves the top-right four by four corner untouched" {
+  let state = State::new()
+  let without_hud = @graphics.Canvas::logical()
+  let with_hud = @graphics.Canvas::logical()
+  state.draw(canvas=without_hud, battery_percent=None)
+  state.draw(canvas=with_hud, battery_percent=Some(82))
+  for y in 0..<4 {
+    let a = FixedArray::make(120, 0)
+    let b = FixedArray::make(120, 0)
+    assert_eq(without_hud.frame_view().copy_rgb565_row(y~, out=a), 120)
+    assert_eq(with_hud.frame_view().copy_rgb565_row(y~, out=b), 120)
+    for x in 116..<120 {
+      assert_eq(a[x], b[x])
+    }
+  }
 }

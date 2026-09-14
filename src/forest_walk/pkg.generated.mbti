@@ -3,7 +3,6 @@ package "colmugx/ai-passport-template/forest_walk"
 
 import {
   "colmugx/ai-passport/graphics",
-  "colmugx/ai-passport/input",
   "colmugx/ai-passport/music",
 }
 
@@ -17,22 +16,15 @@ pub fn ping_pong_x(Int, Int) -> Int
 // Errors
 
 // Types and methods
-pub(all) struct Speed {
-  level : Int
-}
-pub fn Speed::zero() -> Self
-
 pub struct State {
   // private fields
 }
 pub fn State::draw(Self, canvas~ : @graphics.Canvas, battery_percent~ : Int?) -> Unit
 pub fn State::frame(Self) -> Int
 pub fn State::new() -> Self
-pub fn State::paused(Self) -> Bool
 pub fn State::scroll(Self) -> Int
 pub fn State::song(Self) -> @music.Song
-pub fn State::speed(Self) -> Speed
-pub fn State::update(Self, input~ : @input.InputState, beat~ : Int) -> Self
+pub fn State::update(Self, beat~ : Int) -> Self
 pub fn State::walker_frame(Self) -> Int
 pub fn State::walker_sheet(Self) -> @graphics.SpriteSheet
 

@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/ai-passport-template/device"
+
+import {
+  "colmugx/ai-passport/driver",
+  "colmugx/ai-passport/graphics",
+}
+
+// Values
+pub fn forest_draw() -> Unit
+
+pub fn forest_init() -> Unit
+
+pub fn forest_present() -> Unit
+
+pub fn forest_update() -> Unit
+
+pub fn probe() -> Int
+
+// Errors
+
+// Types and methods
+pub struct EspDisplaySink {
+  row : FixedArray[Int]
+}
+pub fn EspDisplaySink::new() -> Self
+pub impl @driver.DisplaySink for EspDisplaySink
+
+// Type aliases
+
+// Traits

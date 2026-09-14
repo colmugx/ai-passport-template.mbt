@@ -31,16 +31,15 @@ fn playback_beat(played_samples : Int64, dotted_quarter_bpm : Int) -> Int {
 }
 
 ///|
-/// Pure gate used by the timer. Pausing or hiding the page must prevent any
-/// further request for a Player chunk, regardless of queue depth.
+/// Pure gate used by the timer. Hiding the page must prevent any further
+/// request for a Player chunk, regardless of queue depth.
 fn should_schedule_chunk(
   context_running : Bool,
-  app_paused : Bool,
   hidden : Bool,
   next_start_time : Double,
   horizon : Double,
 ) -> Bool {
-  context_running && !app_paused && !hidden && next_start_time < horizon
+  context_running && !hidden && next_start_time < horizon
 }
 
 ///|

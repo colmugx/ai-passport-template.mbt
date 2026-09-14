@@ -1,16 +1,4 @@
 ///|
-/// Walking speed in discrete steps; clamped to 0..=3 (0 = standing still).
-pub(all) struct Speed {
-  level : Int
-}
-
-///|
-/// Standing-still speed, reached by pressing Down from the starter speed.
-pub fn Speed::zero() -> Speed {
-  { level: 0, }
-}
-
-///|
 /// All scene state for the walking loop.
 ///
 /// The scene fields are immutable from the outside: `State::update` returns a
@@ -20,10 +8,7 @@ pub fn Speed::zero() -> Speed {
 pub struct State {
   priv frame : Int // monotonically increasing frame counter
   priv scroll : Int // horizontal world scroll offset in pixels
-  priv speed : Speed
-  priv animation_frames : Int // active simulation frames in the walk cycle
   priv walker_frame : Int // fairy animation frame 0..=5
-  priv paused : Bool
   priv song : @music.Song
   priv walker_sheet : @graphics.SpriteSheet // built once in State::new
   // The three authored parallax layers, built once in State::new.
@@ -102,35 +87,20 @@ fn showcase_song() -> @music.Song {
 }
 
 ///|
-/// Creates the initial scene walking at speed 1 and unpaused. The runtime
-/// constructs its own player from `song()` and owns audio callback timing.
+/// Creates the ambient scene. The runtime constructs its own player from
+/// `song()` and owns audio callback timing.
 pub fn State::new() -> State {
   let song = showcase_song()
   {
     frame: 0,
     scroll: 0,
-    speed: { level: 1, },
-    animation_frames: 0,
     walker_frame: 0,
-    paused: false,
     song,
     walker_sheet: build_fairy_walk_right_sheet(),
     far_layer: build_forest_far_layer(),
     world_layer: build_forest_world_layer(),
     foreground_layer: build_forest_foreground_layer(),
   }
-}
-
-///|
-/// Current walking speed.
-pub fn State::speed(self : State) -> Speed {
-  self.speed
-}
-
-///|
-/// Whether the scene (and its music) is paused.
-pub fn State::paused(self : State) -> Bool {
-  self.paused
 }
 
 ///|
@@ -152,7 +122,7 @@ pub fn State::walker_sheet(self : State) -> @graphics.SpriteSheet {
 }
 
 ///|
-/// Monotonically increasing frame counter; it advances even while paused.
+/// Monotonically increasing frame counter.
 pub fn State::frame(self : State) -> Int {
   self.frame
 }

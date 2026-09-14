@@ -1,6 +1,6 @@
 ///|
 /// The renderer reads which sample is audible, not the render-ahead Player's
-/// beat. AudioContext.currentTime freezes during pause and visibility suspend.
+/// beat. AudioContext.currentTime freezes during visibility suspension.
 fn audible_beat(rt : Runtime) -> Int {
   if !rt.sound_unlocked {
     return rt.beat.beat()
@@ -29,8 +29,6 @@ fn refresh_sound_ui(rt : Runtime) -> Unit {
     } else {
       js_set_sound_ui("Sound: off", false)
     }
-  } else if rt.state.paused() {
-    js_set_sound_ui("Sound: paused", true)
   } else if rt.hidden {
     js_set_sound_ui("Sound: suspended in background", true)
   } else {
@@ -61,7 +59,7 @@ fn audio_error(rt : Runtime, message : String) -> Unit {
 /// A missed timer leaves silence, logs an underrun, and resumes at the next
 /// unrendered Player sample instead of skipping the song forward.
 fn audio_scheduler_tick(rt : Runtime) -> Unit {
-  if rt.audio_failed || !rt.sound_unlocked || rt.state.paused() || rt.hidden {
+  if rt.audio_failed || !rt.sound_unlocked || rt.hidden {
     return
   }
   match rt.audio_context {
@@ -91,7 +89,6 @@ fn audio_scheduler_tick(rt : Runtime) -> Unit {
       let horizon = now + AUDIO_LOOKAHEAD_SECONDS
       while should_schedule_chunk(
               running,
-              rt.state.paused(),
               rt.hidden,
               rt.timeline.next_start_time,
               horizon,
@@ -110,21 +107,20 @@ fn audio_scheduler_tick(rt : Runtime) -> Unit {
 }
 
 ///|
-/// Keep browser visibility separate from Forest Walk's user pause state.
-/// The context's own time stops when suspended, preserving queued sources and
-/// the audible beat until playback resumes.
+/// The context's own time stops while the page is hidden, preserving queued
+/// sources and the audible beat until playback resumes.
 fn sync_audio_context(rt : Runtime) -> Unit {
   if rt.audio_failed || !rt.sound_unlocked {
     return
   }
   match rt.audio_context {
     Some(ctx) => {
-      let should_run = !rt.state.paused() && !rt.hidden
+      let should_run = !rt.hidden
       js_audio_set_running(
         ctx,
         should_run,
         state => {
-          let desired_now = !rt.state.paused() && !rt.hidden
+          let desired_now = !rt.hidden
           if desired_now != should_run {
             sync_audio_context(rt)
           } else if (state == "running") != desired_now {
@@ -142,20 +138,6 @@ fn sync_audio_context(rt : Runtime) -> Unit {
     }
     None => abort("unlocked sound has no AudioContext")
   }
-}
-
-///|
-/// The app's Ok transition pauses both transport generation and audible
-/// WebAudio time. Before unlock this changes only app/Player state and cannot
-/// create or start an AudioContext.
-fn on_app_pause_changed(rt : Runtime) -> Unit {
-  if rt.state.paused() {
-    rt.player.pause()
-  } else {
-    rt.player.unpause()
-  }
-  sync_audio_context(rt)
-  refresh_sound_ui(rt)
 }
 
 ///|
@@ -190,7 +172,7 @@ fn enable_sound(rt : Runtime) -> Unit {
             rt.scheduler_started = true
             js_start_audio_scheduler(20, () => audio_scheduler_tick(rt))
           }
-          if rt.state.paused() || rt.hidden {
+          if rt.hidden {
             sync_audio_context(rt)
           }
           refresh_sound_ui(rt)

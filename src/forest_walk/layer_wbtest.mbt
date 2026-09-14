@@ -106,15 +106,12 @@ test "renderer samples the mirrored tile past the layer width" {
 
 ///|
 /// Builds a scene record at an exact scroll, so scroll-dependent rendering
-/// is testable without driving the input state machine.
+/// is testable without driving the ambient frame loop.
 fn state_at_scroll(scroll~ : Int, walker_frame~ : Int) -> State {
   {
     frame: 1,
     scroll,
-    speed: { level: 1, },
-    animation_frames: 1,
     walker_frame,
-    paused: false,
     song: showcase_song(),
     walker_sheet: build_fairy_walk_right_sheet(),
     far_layer: build_forest_far_layer(),
@@ -231,45 +228,12 @@ test "fairy stays fixed in screen space while the world scrolls" {
 }
 
 ///|
-test "pause and standing still freeze every layer offset" {
-  let input = @input.InputState::new()
+test "ambient frame loop advances every parallax offset at fixed ratios" {
   let mut state = State::new()
-  for _ in 0..<10 {
-    state = state.update(input~, beat=0)
-    input.advance()
+  for frame in 1..<81 {
+    state = state.update(beat=0)
+    assert_eq(state.scroll(), frame)
+    assert_eq(far_scroll_offset(state.scroll()), frame / 8)
+    assert_eq(foreground_scroll_offset(state.scroll()), frame * 3 / 2)
   }
-  assert_eq(state.scroll(), 10)
-  fn frozen(current : State, previous_scroll : Int) -> Bool {
-    current.scroll() == previous_scroll &&
-    far_scroll_offset(current.scroll()) == far_scroll_offset(previous_scroll) &&
-    foreground_scroll_offset(current.scroll()) ==
-    foreground_scroll_offset(previous_scroll)
-  }
-  // Pausing keeps all three offsets put.
-  input.press(@input.Ok)
-  state = state.update(input~, beat=0)
-  input.advance()
-  assert_true(state.paused())
-  for _ in 0..<20 {
-    state = state.update(input~, beat=0)
-    input.advance()
-  }
-  assert_true(frozen(state, 10))
-  // Resume, slow to a standstill: speed 0 also keeps every offset. The
-  // resume frame itself still scrolls by the then-active level (documented
-  // update behaviour), so the baseline is taken after it.
-  input.press(@input.Ok)
-  state = state.update(input~, beat=0)
-  input.advance()
-  input.press(@input.Down)
-  state = state.update(input~, beat=0)
-  input.advance()
-  assert_eq(state.speed().level, 0)
-  let baseline = state.scroll()
-  assert_eq(baseline, 11)
-  for _ in 0..<20 {
-    state = state.update(input~, beat=0)
-    input.advance()
-  }
-  assert_true(frozen(state, baseline))
 }

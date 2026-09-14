@@ -32,8 +32,8 @@ fn battery_label(battery_percent : Int?) -> String {
 ///    fairy; its transparent pixels leave the scene below untouched,
 /// 5. the battery HUD last, so it is never occluded.
 ///
-/// The fairy pose index is `walker_frame`, advanced by `update` while moving
-/// and frozen while paused. `battery_percent` is semantic runtime data; no
+/// The fairy pose index is `walker_frame`, advanced by every update.
+/// `battery_percent` is semantic runtime data; no
 /// hardware API is accessed by the application. Unknown readings appear as
 /// `--%`. All rendering goes through the SDK Canvas; there is no procedural
 /// scenery fallback.
@@ -65,7 +65,7 @@ pub fn State::draw(
   canvas.text(
     text=battery_text,
     x=(canvas.width() - @graphics.text_width(text=battery_text) - 2).max(0),
-    y=2,
+    y=4,
     color=@core.Color::rgb(r=31, g=51, b=53),
   )
 }
