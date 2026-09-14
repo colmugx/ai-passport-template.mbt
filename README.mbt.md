@@ -12,11 +12,11 @@ colmugx/ai-passport SDK
  Web runtime   Device runtime
 ```
 
-The browser preview (`src/web` + `web/`) presents the SDK's rasterized 120×160 RGB565 frame through `FrameView` onto an HTML Canvas at 4x scale and plays the showcase song through WebAudio. It is a development preview, not a hardware emulator. A separate ESP32-C3 display smoke-test firmware now builds under `device/esp32c3/`; physical panel behavior has not yet been verified. Device input, audio, and battery work remains future work. Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
+The browser preview (`src/web` + `web/`) presents the SDK's rasterized 120×160 RGB565 frame through `FrameView` onto an HTML Canvas at 4x scale and plays the showcase song through WebAudio. It is a development preview, not a hardware emulator. The ESP32-C3 foundation has already shown the MoonBit probe and RGB smoke screen on a physical FoloToy board. The T4.0-B firmware now builds the same root Forest Walk application for device presentation; live Forest Walk performance and memory still need hardware measurements. Device input, audio, and battery work remains future work. Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
 
-## ESP32-C3 display smoke firmware
+## ESP32-C3 Forest Walk firmware
 
-The device project uses ESP-IDF 5.5.3 and a pinned subset of the official FoloToy display BSP. It builds a MoonBit probe and an SDK `Canvas::logical()` color test; it does not run Forest Walk. The 120×160 RGB565 frame is copied through an SDK `DisplaySink` into a 240×16 RGB565 DMA strip and presented at exact 2× scale. Backlight starts at 60%. The firmware logs the probe result and full-frame `present_us` with an approximate present-FPS ceiling. Physical colors, orientation, and actual latency still require a board test.
+The device project uses ESP-IDF 5.5.3 and a pinned subset of the official FoloToy display BSP. The root module's `src/device` entry imports the authoritative `src/forest_walk` package, with no copied scene or scenery source under `device/`. At boot it initializes the MoonBit runtime, checks the `0xA17E` probe, builds Forest Walk state and presents its SDK `Canvas::logical()` frame. The 120×160 RGB565 frame is copied through an SDK `DisplaySink` into a 240×16 RGB565 DMA strip and presented at exact 2× scale. Backlight starts at 60%. The firmware logs internal heap before and after scene construction, after the first frame and during continuous operation; five-second aggregates include update, draw, present and frame times, achieved FPS, and missed deadlines. The device supplies an unknown battery reading (`--%`) without initializing battery hardware.
 
 After installing the pinned MoonBit toolchain and sourcing ESP-IDF 5.5.3's `export.sh`:
 
@@ -26,7 +26,7 @@ After installing the pinned MoonBit toolchain and sourcing ESP-IDF 5.5.3's `expo
 ./device/monitor.sh -p PORT
 ```
 
-`device/build.sh` verifies the MoonBit runtime source hashes, runs a native Moon build with the device package's `options.link.native.cc` pointing to `tools/moon_cc_capture.py`, and then runs ESP-IDF. The wrapper captures Moon-generated C under the ignored `device/esp32c3/generated/` directory. ESP-IDF compiles that C and the matching MoonBit runtime source with `riscv32-esp-elf-gcc`; no host MoonBit object or manually built archive enters the firmware. See [device/esp32c3/README.md](device/esp32c3/README.md) for the toolchain pins and build contract.
+`device/build.sh` verifies the MoonBit runtime source hashes, runs `moon build src/device --target native --release` with the device package's `options.link.native.cc` pointing to `tools/moon_cc_capture.py`, and then runs ESP-IDF. The wrapper captures Moon-generated C under the ignored `device/esp32c3/generated/` directory. ESP-IDF compiles that C and the matching MoonBit runtime source with `riscv32-esp-elf-gcc`; no host MoonBit object or manually built archive enters the firmware. See [device/esp32c3/README.md](device/esp32c3/README.md) for the toolchain pins and build contract.
 
 ## Browser preview
 
@@ -38,15 +38,7 @@ One command builds the MoonBit JS target and serves the preview:
 
 Requires the MoonBit toolchain and `python3` (used only as the static file server); no npm dependencies. The script builds `src/web` for the JS target, assembles the bundle into `web/dist/`, and serves the `web/` directory. Open the printed URL in a browser.
 
-Controls:
-
-| Key | Action |
-| --- | --- |
-| ArrowUp | Increase walking speed (0–3) |
-| ArrowDown | Decrease walking speed |
-| Space / Enter | Pause / resume animation and sound |
-
-The scene starts walking immediately at speed 1. Click **Enable sound** to unlock WebAudio and start the song from its beginning; the nearby status shows whether sound is active. Browsers require this user gesture before audio can play. Space or Enter pauses both animation and sound; pressing either again resumes them. Before sound is enabled, the preview still animates using a temporary visual beat clock, and pausing does not start sound. The battery HUD shows a fixed `82%` fixture supplied by the browser runtime.
+The ambient scene starts walking and scrolling immediately at one logical pixel per 30 Hz simulation frame. There are no speed or pause controls; ArrowUp, ArrowDown, Space and Enter are unused. Click **Enable sound** to unlock WebAudio and start the song from its beginning; the nearby status shows whether sound is active. Browsers require this user gesture before audio can play. Before sound is enabled, the preview still animates using a temporary visual beat clock. The battery HUD shows a fixed `82%` fixture supplied by the browser runtime.
 
 How a frame reaches the screen (the SDK rasterizer stays authoritative; the browser never redraws SDK content with Canvas2D primitives):
 
@@ -60,7 +52,7 @@ Forest Walk State::draw
   -> CSS integer scaling to 480x640 with image-rendering: pixelated
 ```
 
-The application updates at a fixed 30 Hz simulation rate driven by `requestAnimationFrame` (elapsed time is accumulated and capped after tab suspension); drawing happens every animation frame. Keyboard events map `ArrowUp`/`ArrowDown`/`Space`/`Enter` to SDK `@input` buttons with press/release edges; `InputState::advance` is called exactly once per simulation step. The fairy advances one of its six poses every four active simulation frames, completing a walk cycle in about 0.8 seconds. An independent WebAudio scheduler renders 512-sample, 16 kHz mono PCM blocks from the SDK `Player` and keeps a short playback queue. Once sound starts, the runtime supplies the beat at the WebAudio playback head, derived from elapsed audio-context sample time and the song tempo; it does not use the Player's render-ahead beat. Pausing or hiding the tab suspends WebAudio so the audible timeline stays frozen.
+The application updates at a fixed 30 Hz simulation rate driven by `requestAnimationFrame` (elapsed time is accumulated and capped after tab suspension); drawing happens every animation frame. The fairy advances one of its six poses every four simulation frames, completing a walk cycle in about 0.8 seconds. An independent WebAudio scheduler renders 512-sample, 16 kHz mono PCM blocks from the SDK `Player` and keeps a short playback queue. Once sound starts, the runtime supplies the beat at the WebAudio playback head, derived from elapsed audio-context sample time and the song tempo; the current fairy pose still follows the 30 Hz frame counter. Hiding the tab suspends WebAudio so the audible timeline stays frozen.
 
 ## Forest Walk assets
 

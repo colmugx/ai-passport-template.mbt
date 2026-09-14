@@ -1,25 +1,118 @@
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #include "bsp_display.h"
 #include "display_bridge.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
+extern void moonbit_runtime_init(int argc, char **argv);
 extern void moonbit_init(void);
 extern int32_t ai_passport_mbt_probe(void);
-extern int32_t ai_passport_mbt_present_smoke(void);
+extern int32_t ai_passport_mbt_forest_init(void);
+extern int32_t ai_passport_mbt_forest_update(void);
+extern int32_t ai_passport_mbt_forest_draw(void);
+extern int32_t ai_passport_mbt_forest_present(void);
+
+#define FRAME_PERIOD_US 33333LL
+#define STATS_PERIOD_US 5000000LL
+#define INTERNAL_HEAP_CAPS (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+
+static const char *TAG = "ai_passport";
+
+static void log_heap(const char *phase) {
+    ESP_LOGI(TAG,
+             "heap phase=%s free_internal=%u min_free_internal=%u largest_internal=%u",
+             phase,
+             (unsigned)heap_caps_get_free_size(INTERNAL_HEAP_CAPS),
+             (unsigned)heap_caps_get_minimum_free_size(INTERNAL_HEAP_CAPS),
+             (unsigned)heap_caps_get_largest_free_block(INTERNAL_HEAP_CAPS));
+}
 
 void app_main(void) {
+    moonbit_runtime_init(0, NULL);
     moonbit_init();
     const int32_t probe = ai_passport_mbt_probe();
-    ESP_LOGI("ai_passport", "MoonBit bridge probe: 0x%04lx", (unsigned long)probe);
+    ESP_LOGI(TAG, "MoonBit bridge probe: 0x%04" PRIx32, (uint32_t)probe);
     if (probe != 0xA17E) {
-        ESP_LOGE("ai_passport", "MoonBit bridge probe mismatch");
+        ESP_LOGE(TAG, "MoonBit bridge probe mismatch");
         abort();
     }
+
     ESP_ERROR_CHECK(ai_passport_display_init());
     bsp_display_backlight(60);
-    ESP_LOGI("ai_passport", "MoonBit Canvas 120x160 -> ST7789P3 240x320 present");
-    (void)ai_passport_mbt_present_smoke();
+    log_heap("before_forest_init");
+    (void)ai_passport_mbt_forest_init();
+    log_heap("after_forest_init");
+
+    uint64_t frames = 0;
+    bool first_frame_logged = false;
+    uint64_t missed_deadlines = 0;
+    int64_t total_update_us = 0;
+    int64_t total_draw_us = 0;
+    int64_t total_present_us = 0;
+    int64_t total_frame_us = 0;
+    int64_t window_start_us = esp_timer_get_time();
+    int64_t deadline_us = window_start_us;
+
+    for (;;) {
+        const int64_t frame_start_us = esp_timer_get_time();
+        (void)ai_passport_mbt_forest_update();
+        const int64_t draw_start_us = esp_timer_get_time();
+        (void)ai_passport_mbt_forest_draw();
+        const int64_t present_start_us = esp_timer_get_time();
+        (void)ai_passport_mbt_forest_present();
+        const int64_t frame_end_us = esp_timer_get_time();
+
+        ++frames;
+        total_update_us += draw_start_us - frame_start_us;
+        total_draw_us += present_start_us - draw_start_us;
+        total_present_us += ai_passport_display_last_present_us();
+        total_frame_us += frame_end_us - frame_start_us;
+        if (!first_frame_logged) {
+            log_heap("after_first_frame");
+            first_frame_logged = true;
+        }
+
+        const int64_t elapsed_us = frame_end_us - window_start_us;
+        if (elapsed_us >= STATS_PERIOD_US) {
+            ESP_LOGI(TAG,
+                     "frames=%" PRIu64 " missed_deadlines=%" PRIu64
+                     " avg_update_us=%" PRId64 " avg_draw_us=%" PRId64
+                     " avg_present_us=%" PRId64 " avg_frame_us=%" PRId64
+                     " achieved_fps_x100=%" PRId64,
+                     frames, missed_deadlines,
+                     total_update_us / (int64_t)frames,
+                     total_draw_us / (int64_t)frames,
+                     total_present_us / (int64_t)frames,
+                     total_frame_us / (int64_t)frames,
+                     (int64_t)frames * 100000000LL / elapsed_us);
+            log_heap("sustained_run");
+            frames = 0;
+            missed_deadlines = 0;
+            total_update_us = 0;
+            total_draw_us = 0;
+            total_present_us = 0;
+            total_frame_us = 0;
+            window_start_us = frame_end_us;
+        }
+
+        deadline_us += FRAME_PERIOD_US;
+        if (deadline_us <= esp_timer_get_time()) {
+            ++missed_deadlines;
+            // One simulation step per presented frame. Give the scheduler
+            // breathing room after an overrun instead of rendering catch-up
+            // frames or accumulating an unbounded deadline lag.
+            deadline_us = esp_timer_get_time() + FRAME_PERIOD_US;
+        }
+        const int64_t wait_us = deadline_us - esp_timer_get_time();
+        const TickType_t ticks = pdMS_TO_TICKS((wait_us + 999) / 1000);
+        vTaskDelay(ticks > 0 ? ticks : 1);
+    }
 }

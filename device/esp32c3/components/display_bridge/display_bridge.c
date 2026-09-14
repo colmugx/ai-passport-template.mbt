@@ -35,6 +35,8 @@ static int s_next_row;
 static int s_pending_rows;
 static bool s_presenting;
 static int64_t s_present_start_us;
+static int64_t s_last_present_us;
+static bool s_initialized;
 
 static bool color_transfer_done(
     esp_lcd_panel_io_handle_t io,
@@ -50,6 +52,9 @@ static bool color_transfer_done(
 }
 
 esp_err_t ai_passport_display_init(void) {
+    if (s_initialized) {
+        return ESP_OK;
+    }
     esp_err_t err = bsp_display_init();
     if (err != ESP_OK) {
         return err;
@@ -86,6 +91,7 @@ esp_err_t ai_passport_display_init(void) {
     }
     ESP_LOGI(TAG, "LCD DMA strip: %dx%d RGB565, %u bytes", BSP_LCD_W,
              PHYSICAL_STRIP_ROWS, (unsigned)STRIP_BYTES);
+    s_initialized = true;
     return ESP_OK;
 }
 
@@ -147,8 +153,10 @@ void ai_passport_display_end(void) {
         abort();
     }
     flush_strip();
-    const int64_t present_us = esp_timer_get_time() - s_present_start_us;
+    s_last_present_us = esp_timer_get_time() - s_present_start_us;
     s_presenting = false;
-    ESP_LOGI(TAG, "present_us=%lld approximate_max_present_fps=%lld", present_us,
-             present_us > 0 ? 1000000LL / present_us : 0LL);
+}
+
+int64_t ai_passport_display_last_present_us(void) {
+    return s_last_present_us;
 }

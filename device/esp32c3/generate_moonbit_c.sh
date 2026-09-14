@@ -3,7 +3,6 @@ set -euo pipefail
 
 device_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$device_root/../.." && pwd)"
-device_module="$device_root/moonbit"
 moon_home="${MOON_HOME:-$HOME/.moon}"
 export MOON_HOME="$moon_home"
 
@@ -24,14 +23,14 @@ fi
 
 capture_dir="$device_root/generated/moonbit"
 rm -rf "$capture_dir"
-rm -rf "$device_module/_build"
+rm -rf "$repo_root/_build/native"
 mkdir -p "$capture_dir"
 export MOON_CC_CAPTURE_DIR="$capture_dir"
 export PATH="$repo_root/tools:$PATH"
 export MOONBIT_NEW_NATIVE=0
 (
-    cd "$device_module"
-    moon build --target native --release
+    cd "$repo_root"
+    moon build src/device --target native --release
 )
 
 manifest="$capture_dir/sources.txt"

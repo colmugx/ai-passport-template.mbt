@@ -21,5 +21,5 @@ if(NOT CMAKE_SCRIPT_MODE_FILE)
     # &&/|| expression. Keep GCC's diagnostics visible, but do not let IDF's
     # blanket -Werror reject otherwise valid generated C.
     target_compile_options(${COMPONENT_LIB} PRIVATE
-        -Wno-error=missing-braces -Wno-error=parentheses)
+        -Wno-missing-braces -Wno-error=parentheses)
 endif()

@@ -69,7 +69,10 @@ def main():
     cwd = Path.cwd().resolve()
     capture_dir = os.environ.get("MOON_CC_CAPTURE_DIR")
     if not capture_dir:
-        raise ValueError("MOON_CC_CAPTURE_DIR is required")
+        # Normal root-module native tests also discover this package. In that
+        # mode this executable is an honest host compiler driver; the device
+        # build always sets the capture directory and never uses host objects.
+        os.execvp("cc", ["cc", *sys.argv[1:]])
     destination = Path(capture_dir).resolve()
     destination.mkdir(parents=True, exist_ok=True)
     response_files = []
@@ -88,7 +91,7 @@ def main():
         "response_files": response_files,
     }
 
-    # Moon's generated C lives below the device module's _build directory.
+    # Moon's generated C lives below the root module's _build directory.
     # Copy its relative path to avoid basename collisions across packages.
     build_root = cwd / "_build"
     copied = []

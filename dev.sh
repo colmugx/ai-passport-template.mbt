@@ -31,6 +31,6 @@ cp _build/js/release/build/web/web.js web/dist/web.js
 # 3. Serve the browser shell; open the printed URL.
 echo
 echo "Forest Walk preview: http://localhost:${PORT}/"
-echo "Controls: ArrowUp/ArrowDown speed, Space/Enter pause; click Enable sound for music."
+echo "Ambient fixed-speed scene; keyboard controls are unused. Click Enable sound for music."
 echo "Press Ctrl-C to stop."
 exec python3 -m http.server "${PORT}" --bind 127.0.0.1 --directory web
