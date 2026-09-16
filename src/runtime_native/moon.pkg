@@ -4,11 +4,6 @@ pkgtype(kind: "foreign_library")
 
 import {
   "colmugx/ai-passport-template/app",
-  "colmugx/ai-passport/graphics",
-  "colmugx/ai-passport/input",
   "colmugx/ai-passport/driver",
+  "colmugx/ai-passport/hostabi",
 }
-
-options(
-  "native-stub": [ "host_display_stub.c" ],
-)

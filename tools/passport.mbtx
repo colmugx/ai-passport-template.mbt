@@ -1,5 +1,8 @@
-// Temporary Project Contract v0 command dispatcher (a future SDK passport
-// CLI replaces this).
+// Project build dispatcher: the real builds live in the SDK's passport CLI
+// (src/cmd/passport of the colmugx/ai-passport checkout), invoked from that
+// checkout — the sibling ../ai-passport.mbt, or $AI_PASSPORT_SDK
+// (tools/sync-dev-sdk.sh overlays the same checkout into .mooncakes so the
+// module compiles against the unreleased SDK surface).
 //
 //   moon run tools/passport.mbtx assets
 //   moon run tools/passport.mbtx build web
@@ -23,6 +26,38 @@ async fn run_step(cmd : @shell.Cmd, what : String) -> Unit {
   }
 }
 
+///|
+/// The SDK checkout holding the passport CLI: $AI_PASSPORT_SDK, else the
+/// sibling checkout — the same rule tools/sync-dev-sdk.sh applies.
+fn sdk_dir() -> String {
+  match @env.get_env_var("AI_PASSPORT_SDK") {
+    Some(dir) => dir
+    None => "../ai-passport.mbt"
+  }
+}
+
+///|
+/// Runs one SDK passport CLI command against this project. The CLI resolves
+/// `--project` against its own working directory, so the template root must
+/// cross as an absolute path.
+async fn passport_cli(args : Array[String], what : String) -> Unit {
+  guard @env.current_dir() is Some(root) else {
+    fail("passport: cannot resolve the project root (no current directory)")
+  }
+  let argv : Array[String] = [
+    "run", "--target", "wasm", "src/cmd/passport", "--",
+  ]
+  for arg in args {
+    argv.push(arg)
+  }
+  argv.push("--project")
+  argv.push(root)
+  run_step(
+    @shell.Cmd::Cmd("moon", argv, cwd=sdk_dir()),
+    what,
+  )
+}
+
 async fn main {
   let args = @env.args()
   let command = if args.length() >= 2 { args[1] } else { "" }
@@ -35,15 +70,21 @@ async fn main {
     "build" => {
       let target = if args.length() >= 3 { args[2] } else { "" }
       match target {
+        "web" | "device" => {
+          // Exactly one asset normalization per build (graphics + the
+          // canonical ffmpeg normalization), then the SDK CLI owns the rest.
+          run_step(@shell.Cmd("moon", ["run", "tools/assets.mbtx"]), "assets")
+        }
+        _ => ()
+      }
+      match target {
         "web" =>
-          run_step(
-            @shell.Cmd("moon", ["run", "tools/build.mbtx", "web"]),
-            "build web",
-          )
+          passport_cli(["build", "--host", "web"], "build web (SDK passport CLI)")
         "device" =>
-          // Delegates to the proven device build path (ESP-IDF 5.5.3,
-          // MoonBit C capture, canonical PCM embedding). Never flashes.
-          run_step(@shell.Cmd("bash", ["device/build.sh"]), "build device")
+          passport_cli(
+            ["build", "--host", "folotoy-ai-passport"],
+            "build device (SDK passport CLI; never flashes)",
+          )
         _ =>
           fail("passport build: expected 'web' or 'device', got: '\{target}'")
       }

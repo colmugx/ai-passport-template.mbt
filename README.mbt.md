@@ -1,34 +1,37 @@
 # AI Passport application template
 
 
-`moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.3`. Run `moon update` to resolve it. No local SDK workspace is needed to build or test this template, including in CI.
+`moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.3` (plus `moonbitlang/async@0.22.1`). The thin native device entry compiles against SDK surfaces no published release ships yet, so a dev overlay is used until the next SDK release (the pin bumps to that release when it ships): `tools/sync-dev-sdk.sh` copies a local SDK checkout into the ignored `.mooncakes/colmugx/ai-passport/` (generated state — re-run it after changing the SDK checkout, and after any `moon update`, which re-materializes the published package over it). CI checks out the SDK at `main` and runs the same script.
 
 ```text
 Forest Walk application logic (src/forest_walk + src/app, shared)
          |
          v
 colmugx/ai-passport SDK
-      /          \
- runtime_wasm  src/device
- (wasm -> SDK   (ESP-IDF/BSP)
-  Web Host)
+      /             \
+ runtime_wasm    runtime_native
+ (wasm -> SDK    (generic device ABI ->
+  Web Host)       SDK ESP-IDF/BSP backend)
 ```
 
 Browser execution is the shared MoonBit App compiled to `app.wasm` and run by the SDK Web Host: the bundle's only page is the SDK's own `index.html`, whose DOM auto-boot in `passport-host.js` instantiates the wasm app and is configured generically through URL parameters (`?pcm=...&pcmLoop=1`). The template owns no browser bootstrap JavaScript of its own. The ESP32-C3 foundation has already shown the MoonBit probe and RGB smoke screen on a physical FoloToy board. The T4.0-B firmware builds the same root Forest Walk application for device presentation, T4.1-A adds the real CW2017 battery HUD and flash-resident looping music (audio playback confirmed on the board), and T4.1-B adds the physical volume buttons through the official BSP ADC button driver (UP volume+, DOWN volume−, OK mute; startup volume 80%). Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
 
 ## ESP32-C3 Forest Walk firmware
 
-The device project uses ESP-IDF 5.5.3 and the official FoloToy BSP, referenced (never copied) through the pinned git submodule at `external/folotoy-ai-passport`: display, shared I2C, CW2017 battery gauge and ES8311 audio. The root module's `src/device` entry imports the authoritative `src/forest_walk` package, with no copied scene or scenery source under `device/`. At boot it initializes the MoonBit runtime, checks the `0xA17E` probe, builds Forest Walk state and presents its SDK `Canvas::logical()` frame. The 120×160 RGB565 frame is copied through an SDK `DisplaySink` into a 240×16 RGB565 DMA strip and presented at exact 2× scale. Backlight starts at 60%. The firmware logs internal heap before and after scene construction, before and after audio initialization, after the first frame and during continuous operation; five-second aggregates include update, draw, present and frame times, achieved FPS, and missed deadlines. The battery HUD reads the real CW2017 gauge once per second and shows `--%` while it is unavailable.
+The device backend (the ESP-IDF 5.5.3 project, the vendored FoloToy BSP, and all C bridges: display DMA, buttons, battery, music, clock) lives in the SDK repository under `hosts/folotoy-ai-passport/` and is not part of this template. The template's `src/runtime_native` is thin glue: it builds the shared `@app.App` and exports the eight generic ABI symbols the SDK's C `app_main` calls (`ai_passport_mbt_{probe,app_init,app_update,app_draw,app_present,input_press,audio_volume,audio_muted}`); it owns no C code, no FFI externs, and no bridge logic. The device fairy pose clock leads the reported playback position by a hardware-measured 100 ms (`FAIRY_POSE_LEAD_US`), the app-owned host calibration fact that keeps displayed steps on the audible beat.
 
-After installing the pinned MoonBit toolchain and sourcing ESP-IDF 5.5.3's `export.sh`:
+Toolchain preconditions (the SDK `passport doctor --host folotoy-ai-passport` verifies all of them): ESP-IDF v5.5.3 with `idf.py` on PATH (`source $IDF_PATH/export.sh`), the MoonBit toolchain `moon 0.1.20260915`, and `$MOON_HOME` pointing at the MoonBit installation whose runtime hash the SDK host manifest pins.
 
 ```sh
-./device/build.sh
-./device/flash.sh -p PORT    # only with the board connected
-./device/monitor.sh -p PORT
+moon run tools/passport.mbtx build device    # assets, capture, ESP-IDF build; never flashes
 ```
 
-`device/build.sh` verifies the MoonBit runtime source hashes, runs `moon build src/device --target native --release` with the device package's `options.link.native.cc` temporarily pointed at `tools/moon_cc_capture.py` for that invocation only (the committed `moon.pkg` carries no override, so ordinary host native builds use the standard Moon toolchain), converts the authored music into `generated/forest_walk.pcm`, and then runs ESP-IDF. The wrapper captures Moon-generated C under the ignored `device/esp32c3/generated/` directory. ESP-IDF compiles that C, the matching MoonBit runtime source, and the flash-embedded music PCM with `riscv32-esp-elf-gcc`; no host MoonBit object or manually built archive enters the firmware. See [device/esp32c3/README.md](device/esp32c3/README.md) for the toolchain pins and build contract.
+The dispatcher delegates to the SDK `passport` CLI: it normalizes assets exactly once, captures MoonBit-generated C from the thin entry, materializes the host project into the ignored `.passport/folotoy-ai-passport/` workspace (including `passport_music.pcm`, a byte-for-byte copy of the contract's `pcmLoop` asset), and runs `idf.py reconfigure` followed by `idf.py build`. With a board connected, flash and monitor from the materialized workspace:
+
+```sh
+.passport/folotoy-ai-passport/flash.sh -p PORT
+.passport/folotoy-ai-passport/monitor.sh -p PORT
+```
 
 ## Web development and build
 
@@ -80,7 +83,7 @@ To regenerate the compact MoonBit sources after editing any PNG, run:
 ./tools/compile_assets.sh
 ```
 
-The compilers use Python 3's standard library only. Each scenery source receives a deterministic 3:2 cover crop before nearest-neighbour resize to 240×160; the world crop is anchored to the bottom to preserve the road. Sources already at 3:2 keep their full frame. Alpha is thresholded at build time (below 128 becomes fully transparent), and opaque colors are reduced to at most 128 with a deterministic median-cut quantizer. The runtime never loads a PNG: browser and future device builds compile the generated sources under `src/forest_walk/generated/`, which carry one small palette plus one-byte indices per layer. Scenery scrolls with ping-pong tiling (`A | mirror(A) | ...`), so no mirrored copy is stored and no seamless authoring is required. Running the compiler twice without changing the assets produces byte-identical output, which CI verifies with `git diff --exit-code`.
+The compilers use Python 3's standard library only. Each scenery source receives a deterministic 3:2 cover crop before nearest-neighbour resize to 240×160; the world crop is anchored to the bottom to preserve the road. Sources already at 3:2 keep their full frame. Alpha is thresholded at build time (below 128 becomes fully transparent), and opaque colors are reduced to at most 128 with a deterministic median-cut quantizer. The runtime never loads a PNG: browser and device builds compile the generated sources under `src/forest_walk/generated/`, which carry one small palette plus one-byte indices per layer. Scenery scrolls with ping-pong tiling (`A | mirror(A) | ...`), so no mirrored copy is stored and no seamless authoring is required. Running the compiler twice without changing the assets produces byte-identical output, which CI verifies with `git diff --exit-code`.
 
 ## Forest Walk music
 
@@ -93,15 +96,17 @@ Music is authored as one exported audio file, not as note data. Place exactly on
 
 Keeping both is an error unless you explicitly pass `--source` to the
 converter. `tools/compile_audio.py` (requires `ffmpeg`) converts the selected
-file into the device playback format — signed PCM16 little-endian, mono,
-16000 Hz — under the ignored `device/esp32c3/generated/forest_walk.pcm`,
+file into the playback format — signed PCM16 little-endian, mono,
+16000 Hz — as the canonical artifact `.passport/assets/forest_walk.pcm`,
 reporting source and generated durations and sizes, refusing tracks over the
 `0x280000`-byte device flash budget (the PCM shares the factory app
-partition with the firmware), and failing on any conversion error. The
-authored file is committed; the generated PCM is not. Both runtimes play
-the normalized artifact: the device embeds it, the web bundle serves a
-byte-identical copy (`tools/verify_pcm_identity.py` proves all three
-copies match). CI installs ffmpeg and runs the same conversion.
+partition with the firmware; the budget is pinned against the SDK device
+Host's `partitions.csv`), and failing on any conversion error. The
+authored file is committed; the generated PCM is not. Both Hosts play the
+same bytes: the web bundle serves a byte-identical copy and the device
+workspace embeds one (`passport_music.pcm`);
+`tools/verify_pcm_identity.py` proves the copies match the canonical
+artifact. CI installs ffmpeg and runs the same conversion.
 
 ## Develop
 
@@ -109,6 +114,7 @@ Install the MoonBit toolchain, then run:
 
 ```sh
 moon update
+./tools/sync-dev-sdk.sh
 ./tools/compile_assets.sh
 moon check --target native --output-json
 moon test --target native --output-json

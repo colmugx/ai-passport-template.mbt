@@ -18,5 +18,5 @@ source = "src"
 
 import {
   "colmugx/ai-passport@0.0.3",
-  "moonbitlang/async@0.21.3",
+  "moonbitlang/async@0.22.1",
 }

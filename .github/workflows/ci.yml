@@ -4,13 +4,31 @@ on:
   push:
   pull_request:
 
+env:
+  # SDK checkout holding the passport CLI + the dev-overlay source
+  # (tools/sync-dev-sdk.sh, tools/passport.mbtx and the tests resolve it
+  # through $AI_PASSPORT_SDK).
+  AI_PASSPORT_SDK: ${{ github.workspace }}/ai-passport.mbt
+
 jobs:
   moonbit:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: template
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          path: template
+
+      # Template main tracks SDK main until the next SDK release publishes
+      # the device surface the template's thin native entry compiles against.
+      - name: Check out the SDK toolchain (colmugx/ai-passport.mbt main)
+        uses: actions/checkout@v4
+        with:
+          repository: colmugx/ai-passport.mbt
+          ref: main
+          path: ai-passport.mbt
 
       - name: Install MoonBit
         run: |
@@ -18,16 +36,25 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
-      - name: Resolve the published SDK 0.0.3 (never a local checkout)
+      - name: Resolve SDK CLI dependencies (fresh checkout has none)
+        working-directory: ai-passport.mbt
+        run: moon update
+
+      - name: Resolve dependencies (published pins, then dev overlay)
         run: |
           test ! -e moon.work
           grep -q 'colmugx/ai-passport@0.0.3' moon.mod
           ! grep -q 'colmugx/ai-passport@0.0.2' moon.mod
           moon update
+          # The overlay must land after moon update: moon materializes the
+          # published package over it, the sync then replaces that content
+          # with the SDK checkout (stamped as the same version).
+          ./tools/sync-dev-sdk.sh "$AI_PASSPORT_SDK"
+          git diff --exit-code
 
       # The ONE web-build entry point: `build web` runs tools/assets.mbtx
       # internally (graphics + the single canonical ffmpeg normalization),
-      # compiles wasm and assembles .passport/web/. Never call
+      # then the SDK passport CLI assembles .passport/web/. Never call
       # `passport assets` separately in the same workflow: the Project
       # Contract allows exactly one audio normalization per build.
       - name: Build the web bundle (assets normalize exactly once)

@@ -1,9 +1,9 @@
-// Temporary Project Contract v0 dev server (a future SDK passport CLI
-// replaces this).
+// Project dev server.
 //
 //   moon run tools/dev.mbtx
 //
-// Builds the new wasm web bundle (tools/build.mbtx web), serves
+// Builds the wasm web bundle through the dispatcher (tools/passport.mbtx
+// build web — assets normalization once, then the SDK passport CLI), serves
 // .passport/web over localhost with a python3 static file server, prints
 // the configured URL, and keeps serving until interrupted. No browser
 // runtime logic lives here; the SDK Web Host runs the application.
@@ -37,7 +37,10 @@ async fn main {
     Some(p) => p
     None => "8000"
   }
-  run_step(@shell.Cmd("moon", ["run", "tools/build.mbtx", "web"]), "building web bundle")
+  run_step(
+    @shell.Cmd("moon", ["run", "tools/passport.mbtx", "build", "web"]),
+    "building web bundle",
+  )
   guard @fs.exists(".passport/web/app.wasm") else {
     fail("dev: bundle incomplete: .passport/web/app.wasm missing")
   }

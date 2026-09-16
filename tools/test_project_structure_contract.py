@@ -1,14 +1,16 @@
-"""Guards the R2C single-implementation web architecture.
+"""Guards the R4A2 single-implementation, SDK-owned-host architecture.
 
-After R2C there is exactly ONE application implementation: the shared
-MoonBit App executed by the published SDK Web Host through
-src/runtime_wasm on the web side and src/device (ESP-IDF) on the device
-side. The legacy JS browser runtime (src/web, the root web/ preview shell,
-dev.sh) and the temporary template-generated app.html bootstrap are gone;
-the SDK's own index.html with generic URL parameters is the only web
-entry.
+There is exactly ONE application implementation: the shared MoonBit App
+executed by the SDK Web Host through src/runtime_wasm on the web side and
+by the SDK device backend through the thin src/runtime_native entry on the
+device side. The template owns no Host implementation: the legacy template
+device tree (device/, src/device, the BSP submodule) is gone, and the
+legacy JS browser runtime (src/web, the root web/ preview shell, dev.sh)
+is gone; the SDK's own index.html with generic URL parameters is the only
+web entry.
 """
 
+import json
 import unittest
 from pathlib import Path
 
@@ -38,15 +40,15 @@ class ProjectStructureContractTests(unittest.TestCase):
             "dev.sh belonged to the deleted JS preview architecture",
         )
 
-    def test_moon_mod_pins_published_sdk_0_0_3(self):
+    def test_moon_mod_pins_published_sdk(self):
         text = (REPO_ROOT / "moon.mod").read_text()
         self.assertIn(
             f'"{SDK_DEPENDENCY}",',
             text,
-            "moon.mod must depend on the published SDK 0.0.3",
+            f"moon.mod must depend on the published SDK ({SDK_DEPENDENCY})",
         )
-        self.assertNotIn("colmugx/ai-passport@0.0.2", text)
-        self.assertNotIn("colmugx/ai-passport@0.0.1", text)
+        for older in ("colmugx/ai-passport@0.0.2", "colmugx/ai-passport@0.0.1"):
+            self.assertNotIn(older, text)
 
     def test_no_moon_work(self):
         self.assertFalse(
@@ -54,30 +56,85 @@ class ProjectStructureContractTests(unittest.TestCase):
             "moon.work would override the published dependency resolution",
         )
 
-    def test_build_mbtx_generates_no_app_html(self):
-        text = (REPO_ROOT / "tools" / "build.mbtx").read_text()
-        for forbidden in ("ENTRY_PAGE", "write_entry_page", "createHost"):
-            self.assertNotIn(
-                forbidden,
-                text,
-                f"tools/build.mbtx must not own browser bootstrap ({forbidden})",
+    def test_host_implementations_are_sdk_owned(self):
+        for gone in (
+            "device",
+            "src/device",
+            "external",
+            ".gitmodules",
+            "tools/moon_cc_capture.py",
+        ):
+            self.assertFalse(
+                (REPO_ROOT / gone).exists(),
+                f"{gone} must not exist: Host implementation is SDK-owned "
+                "(hosts live in the SDK's hosts/folotoy-ai-passport)",
             )
-        for line in text.splitlines():
-            if "app.html" in line:
-                self.assertTrue(
-                    "@fs.remove" in line or "@fs.exists" in line,
-                    "tools/build.mbtx may reference app.html only to remove "
-                    f"a stale copy, found: {line.strip()}",
-                )
 
-    def test_built_web_bundle_has_no_app_html(self):
-        bundle = REPO_ROOT / ".passport" / "web"
-        if not (bundle / "app.wasm").is_file():
-            self.skipTest("web bundle not built yet")
+    def test_device_entry_is_a_thin_native_foreign_library(self):
+        pkg = REPO_ROOT / "src" / "runtime_native" / "moon.pkg"
+        self.assertTrue(
+            pkg.is_file(),
+            "src/runtime_native/moon.pkg must exist: the thin device entry",
+        )
+        text = pkg.read_text()
+        self.assertIn('supported_targets = "native"', text)
+        self.assertIn('pkgtype(kind: "foreign_library")', text)
+        # The SDK passport CLI injects the capture link override for exactly
+        # one build; the committed package must carry no link override.
+        self.assertNotIn(
+            "link:",
+            text,
+            "the device entry must not declare a link override (the SDK "
+            "CLI injects the capture cc per build)",
+        )
+        self.assertNotIn(
+            "native-stub",
+            text,
+            "the thin entry owns no C stubs (bridge coverage lives in the "
+            "SDK)",
+        )
+        runtime = (REPO_ROOT / "src" / "runtime_native" / "runtime.mbt").read_text()
+        for export in (
+            "ai_passport_mbt_probe",
+            "ai_passport_mbt_app_init",
+            "ai_passport_mbt_app_update",
+            "ai_passport_mbt_app_draw",
+            "ai_passport_mbt_app_present",
+            "ai_passport_mbt_input_press",
+            "ai_passport_mbt_audio_volume",
+            "ai_passport_mbt_audio_muted",
+        ):
+            self.assertIn(f'"{export}"', runtime)
+        self.assertNotIn(
+            "extern",
+            runtime,
+            "the thin entry must not declare its own FFI (SDK hostabi owns "
+            "the externs)",
+        )
+
+    def test_passport_json_contract_shape(self):
+        contract = json.loads((REPO_ROOT / "passport.json").read_text())
+        self.assertEqual(contract["entry"], "runtime_wasm")
+        self.assertEqual(contract["deviceEntry"], "runtime_native")
+        looping = [
+            asset
+            for asset in contract.get("assets", [])
+            if asset.get("pcmLoop") is True
+        ]
+        self.assertEqual(len(looping), 1)
+        self.assertEqual(
+            looping[0]["source"], ".passport/assets/forest_walk.pcm"
+        )
+        self.assertEqual(looping[0]["bundlePath"], "assets/forest_walk.pcm")
+
+    def test_dispatcher_delegates_to_the_sdk_cli(self):
+        text = (REPO_ROOT / "tools" / "passport.mbtx").read_text()
+        self.assertIn("src/cmd/passport", text)
+        self.assertIn("folotoy-ai-passport", text)
         self.assertFalse(
-            (bundle / "app.html").exists(),
-            ".passport/web/app.html must not exist; the SDK index.html is "
-            "the only web entry",
+            (REPO_ROOT / "tools" / "build.mbtx").exists(),
+            "tools/build.mbtx duplicated the SDK CLI web build and must "
+            "stay deleted",
         )
 
     def test_dev_mbtx_targets_sdk_index_html_with_host_params(self):

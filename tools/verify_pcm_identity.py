@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove the PCM artifact identity (R2A contract, task items 8 and 24).
+"""Prove the PCM artifact identity (R2A contract; adapted for R4A2).
 
 Exactly one normalization invocation per build workflow writes the ONE
 canonical artifact:
@@ -8,30 +8,28 @@ canonical artifact:
 
 Both consumers must resolve to those exact bytes:
 
-  * web bundle:  .passport/web/assets/forest_walk.pcm  (byte-for-byte copy)
-  * device:      the ESP-IDF music_stream component embeds the canonical
-                 file directly (verified here by pinning the CMake path,
-                 since CI does not run ESP-IDF)
+  * web bundle:    .passport/web/assets/forest_walk.pcm  (byte-for-byte copy)
+  * device build:  .passport/folotoy-ai-passport/passport_music.pcm — the
+                   SDK passport CLI materializes the firmware's music file
+                   from the contract's pcmLoop asset (byte-for-byte copy)
+
+The device workspace copy exists only after a device build, so it is
+checked whenever present and clearly skipped otherwise (CI never runs
+ESP-IDF).
 
 This script fails (exit 1) on any mismatch. Run it after
 `moon run tools/passport.mbtx build web`.
 """
 
 import hashlib
-import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CANONICAL = REPO_ROOT / ".passport" / "assets" / "forest_walk.pcm"
 WEB_COPY = REPO_ROOT / ".passport" / "web" / "assets" / "forest_walk.pcm"
-DEVICE_CMAKE = (
-    REPO_ROOT
-    / "device"
-    / "esp32c3"
-    / "components"
-    / "music_stream"
-    / "CMakeLists.txt"
+DEVICE_COPY = (
+    REPO_ROOT / ".passport" / "folotoy-ai-passport" / "passport_music.pcm"
 )
 
 
@@ -73,33 +71,23 @@ def main() -> None:
     if web_hash != canonical_hash:
         fail("web served PCM differs from the canonical artifact")
 
-    cmake = DEVICE_CMAKE.read_text()
-    match = re.search(
-        r'set\(MUSIC_PCM_FILE "\$\{REPO_ROOT\}/([^"]+)"\)', cmake
-    )
-    if not match:
-        fail(f"cannot find MUSIC_PCM_FILE in {DEVICE_CMAKE}")
-    device_path = match.group(1)
-    expected = ".passport/assets/forest_walk.pcm"
-    print(f"device:   {DEVICE_CMAKE.relative_to(REPO_ROOT)}")
-    print(f"  embeds: {device_path}")
-    if device_path != expected:
-        fail(
-            f"device embeds {device_path}, not the canonical {expected}; "
-            "the firmware would flash different bytes than the web serves"
+    if DEVICE_COPY.is_file():
+        device_hash = sha256(DEVICE_COPY)
+        print(f"device:   {DEVICE_COPY.relative_to(REPO_ROOT)}")
+        print(f"  sha256: {device_hash}")
+        if device_hash != canonical_hash:
+            fail("device embedded-input PCM differs from the canonical artifact")
+    else:
+        print(
+            "device:   workspace not built yet "
+            f"({DEVICE_COPY.relative_to(REPO_ROOT)} absent; "
+            "run: moon run tools/passport.mbtx build device)"
         )
-    embedded = REPO_ROOT / device_path
-    if not embedded.is_file():
-        fail(f"device input PCM missing: {embedded}")
-    # REPO_ROOT-relative path resolves to the canonical file itself; the
-    # byte identity is the canonical hash checked above.
-    embedded_hash = sha256(embedded)
-    if embedded_hash != canonical_hash:
-        fail("device embedded-input PCM differs from the canonical artifact")
 
     print(
-        "PASS: web PCM == device embedded-input PCM == canonical artifact "
-        f"(sha256 {canonical_hash})"
+        "PASS: web PCM "
+        + ("== device embedded-input PCM " if DEVICE_COPY.is_file() else "")
+        + f"== canonical artifact (sha256 {canonical_hash})"
     )
 
 

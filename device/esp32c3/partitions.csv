@@ -1,9 +1,0 @@
-# AI Passport T4.1-A flash layout (8 MB flash, no PSRAM).
-# The factory app embeds the Forest Walk music as flash-resident PCM16
-# (~2.4 MB for the current 76 s track) next to the ~650 KB program image,
-# so it is sized far above the IDF default 1 MB and still leaves ~4.4 MB
-# unused. Keep sizes 64 KB aligned.
-# Name,   Type, SubType,  Offset,  Size,     Flags
-nvs,      data, nvs,     0x9000,  0x6000,
-phy_init, data, phy,     0xf000,  0x1000,
-factory,  app,  factory, 0x10000, 0x380000,

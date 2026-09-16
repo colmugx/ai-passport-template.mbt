@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -10,6 +11,16 @@ SCRIPT = Path(__file__).with_name("compile_audio.py")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPT.parent))
 import compile_audio
+
+
+def sdk_root() -> Path:
+    """The SDK checkout owning the device Host: $AI_PASSPORT_SDK, else the
+    sibling checkout — the same rule tools/passport.mbtx and
+    tools/sync-dev-sdk.sh apply."""
+    override = os.environ.get("AI_PASSPORT_SDK")
+    if override:
+        return Path(override)
+    return REPO_ROOT.parent / "ai-passport.mbt"
 
 
 def make_tone(path: Path, seconds: float) -> None:
@@ -120,10 +131,15 @@ class CompileAudioTests(unittest.TestCase):
 
     def test_pcm_budget_fits_inside_factory_app_partition(self):
         # The PCM is embedded in the factory app image, so the tool's budget
-        # must be smaller than the partition partitions.csv actually grants,
-        # with at least 1 MiB still reserved for the firmware itself.
+        # must be smaller than the partition the SDK's device Host actually
+        # grants, with at least 1 MiB still reserved for the firmware itself.
+        table = sdk_root() / "hosts" / "folotoy-ai-passport" / "partitions.csv"
+        if not table.is_file():
+            self.skipTest(
+                f"SDK device Host partitions.csv not found: {table} "
+                "(set AI_PASSPORT_SDK)"
+            )
         sizes = {}
-        table = REPO_ROOT / "device" / "esp32c3" / "partitions.csv"
         for line in table.read_text().splitlines():
             line = line.split("#", 1)[0].strip()
             if not line:
