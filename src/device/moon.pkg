@@ -5,6 +5,7 @@ pkgtype(kind: "foreign_library")
 import {
   "colmugx/ai-passport-template/app",
   "colmugx/ai-passport/graphics",
+  "colmugx/ai-passport/input",
   "colmugx/ai-passport/driver",
 }
 

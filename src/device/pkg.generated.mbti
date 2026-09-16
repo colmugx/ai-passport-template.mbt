@@ -7,6 +7,10 @@ import {
 }
 
 // Values
+pub fn audio_muted() -> Int
+
+pub fn audio_volume() -> Int
+
 pub fn forest_draw() -> Unit
 
 pub fn forest_init() -> Unit
@@ -14,6 +18,8 @@ pub fn forest_init() -> Unit
 pub fn forest_present() -> Unit
 
 pub fn forest_update() -> Unit
+
+pub fn input_press(Int) -> Unit
 
 pub fn probe() -> Int
 

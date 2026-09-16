@@ -1,22 +1,28 @@
-// Device background music: streams the flash-embedded Forest Walk PCM into
-// the BSP audio codec. One FreeRTOS task uniquely owns every PCM write and
-// every codec volume change; the Forest Walk render loop, the button
-// callback and MoonBit code never touch audio transport.
+// Device background music transport: streams the flash-embedded Forest Walk
+// PCM into the BSP audio codec. One FreeRTOS task uniquely owns every PCM
+// write and every codec volume change; the Forest Walk render loop, the
+// button callback and MoonBit code never touch audio transport.
+//
+// The transport holds no control semantics. It receives the ABSOLUTE desired
+// output state (volume 0..100, muted) that the portable App decided, stored
+// latest-wins in a packed atomic — there is no command queue and no
+// UP/DOWN/OK knowledge here.
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
 
 #include "esp_err.h"
-#include "volume_control.h"
 
-// Initializes the ES8311 codec over the BSP's shared I2C bus, opens the
-// 16 kHz / 16-bit / mono playback format, sets the startup volume (80%,
-// matching the official FoloToy audio demo) and starts the looping playback
-// task. Idempotent: a second call returns ESP_OK without creating another
-// task. On failure nothing is started and the error is returned; the caller
-// keeps running without music and volume commands stay unavailable.
-esp_err_t ai_passport_music_start(void);
+// Initializes the ES8311 codec over the BSP's shared I2C bus and opens the
+// 16 kHz / 16-bit / mono playback format. The desired output state comes
+// from the caller as App-owned facts (`initial_volume` 0..100 plus
+// `initial_muted`): the streaming task writes that state to the codec once,
+// from the audio-owning context, before the first PCM sample. Idempotent: a
+// second call returns ESP_OK without creating another task. On failure
+// nothing is started and the error is returned; the caller keeps running
+// without music and set_output simply never reaches a codec.
+esp_err_t ai_passport_music_start(int initial_volume, bool initial_muted);
 
 // Playback format of the generated device asset: signed PCM16
 // little-endian, mono, 16000 Hz. tools/compile_audio.py guarantees it.
@@ -24,18 +30,16 @@ esp_err_t ai_passport_music_start(void);
 #define MUSIC_CHANNELS 1
 #define MUSIC_BITS_PER_SAMPLE 16
 
-// Enqueues one volume/mute command for the music task. Safe from the button
-// callback: it never blocks and allocates nothing. Returns true when the
-// command was queued, false when audio is not running (nothing consumes the
-// command) or the queue is full — a full queue drops the event rather than
-// blocking the caller, and the drop is counted in
-// ai_passport_music_dropped_commands().
-bool music_stream_send_command(music_cmd_t command);
-
-// Volume/mute commands dropped because the control queue was full. Purely
-// diagnostic: a human pressing buttons faster than eight pending commands
-// is not an error worth more than this counter.
-uint32_t ai_passport_music_dropped_commands(void);
+// Publishes the absolute desired output state decided by the portable App:
+// `volume` is the remembered setting (0..100 per the App's Controls) and
+// `muted` mutes the codec output while the remembered setting is preserved.
+// Latest state wins: one packed atomic store, so volume and mute always
+// travel as one coherent snapshot. Safe from the frame task and from any
+// other context: it never blocks, never allocates and is meaningful even
+// when music failed to start (the state is stored; nothing consumes it).
+// Redundant identical states cause no codec write: the music task applies
+// a change exactly once.
+void ai_passport_music_set_output(int volume, bool muted);
 
 // Musical position of device playback in microseconds within the current
 // loop iteration, for the visual walk clock. Read-only and cheap: call it

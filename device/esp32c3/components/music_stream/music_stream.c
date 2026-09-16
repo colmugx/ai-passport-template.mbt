@@ -10,7 +10,6 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
 #include "freertos/task.h"
 
 // The generated asset is embedded as raw PCM16 little-endian mono 16 kHz.
@@ -24,10 +23,16 @@ extern const uint8_t forest_walk_pcm_end[] asm("_binary_forest_walk_pcm_end");
 // Retry cadence for a failed write: log at most once per second, never spin.
 #define MUSIC_RETRY_DELAY_MS 20
 #define MUSIC_ERROR_LOG_PERIOD_MS 1000
-// Pending volume/mute commands. Small on purpose: a human cannot outrun the
-// music task draining it between 15 ms PCM writes; overflow means repeated
-// presses stacked up and dropping the tail is the desired behavior.
-#define MUSIC_COMMAND_QUEUE_LENGTH 8
+
+// Packed desired output: bits 0..7 hold the remembered volume (0..100),
+// bit 8 the mute flag. One atomic store publishes volume and mute as one
+// coherent snapshot; there is no semantic command queue to drop from.
+#define MUSIC_OUTPUT_VOLUME_MASK 0xFFu
+#define MUSIC_OUTPUT_MUTED_BIT 0x100u
+// "Nothing applied yet": never a valid packed state, so the music task
+// writes the startup output to the codec exactly once before the first PCM
+// sample and then only on real changes.
+#define MUSIC_OUTPUT_UNAPPLIED 0xFFFFFFFFu
 
 static const char *TAG = "music_stream";
 
@@ -35,28 +40,34 @@ static bool s_started;
 // Loop-wrapped write offset in samples (bytes / 2), published for the
 // visual walk clock. Atomic: the render loop reads it without a lock.
 static atomic_int s_loop_sample;
-// Command queue, created by ai_passport_music_start before the task runs.
-// NULL means audio is unavailable and send_command safely rejects.
-static QueueHandle_t s_commands;
-// Commands dropped on a full queue; read by the telemetry loop.
-static atomic_uint s_dropped_commands;
-// Volume/mute state, written only by the music task.
-static music_volume_state_t s_volume = {
-    .volume = MUSIC_VOLUME_INITIAL,
-    .muted = false,
-};
+// Desired absolute output state, written by the render-side mirror with one
+// atomic store (latest state wins). A failed music start simply means
+// nothing ever consumes the state.
+static atomic_uint s_desired;
+// Last packed state applied to the codec. Only the music task reads or
+// writes it, so no extra synchronization is needed.
+static unsigned s_applied = MUSIC_OUTPUT_UNAPPLIED;
 
-// Consumes every pending control command. Runs in the music task between
-// PCM writes, so the codec volume changes and their logs never execute in
-// the button callback's shared timer task.
-static void apply_pending_commands(void) {
-    music_cmd_t command;
-    while (xQueueReceive(s_commands, &command, 0) == pdTRUE) {
-        s_volume = music_volume_apply(s_volume, command);
-        bsp_audio_set_volume(music_volume_codec(&s_volume));
-        ESP_LOGI(TAG, "volume=%d muted=%d", s_volume.volume,
-                 s_volume.muted ? 1 : 0);
+// Codec-facing volume for a packed state: zero while muted, otherwise the
+// remembered setting preserved by the App's Controls.
+static int output_codec_volume(unsigned packed) {
+    const bool muted = (packed & MUSIC_OUTPUT_MUTED_BIT) != 0u;
+    return muted ? 0 : (int)(packed & MUSIC_OUTPUT_VOLUME_MASK);
+}
+
+// Applies the desired output when it changed. Runs in the music task
+// between PCM writes, so the codec volume change and its log never execute
+// in the render task; a redundant identical state writes nothing.
+static void apply_desired_output(void) {
+    const unsigned desired = atomic_load(&s_desired);
+    if (desired == s_applied) {
+        return;
     }
+    bsp_audio_set_volume((uint8_t)output_codec_volume(desired));
+    ESP_LOGI(TAG, "output volume=%u muted=%d",
+             desired & MUSIC_OUTPUT_VOLUME_MASK,
+             (desired & MUSIC_OUTPUT_MUTED_BIT) != 0u ? 1 : 0);
+    s_applied = desired;
 }
 
 // Streams bounded chunks straight from flash-mapped memory into the codec.
@@ -65,15 +76,12 @@ static void apply_pending_commands(void) {
 // loop boundary does not allocate and cannot accumulate latency.
 static void music_task(void *arg) {
     (void)arg;
-    // Startup volume rides the same path as button changes: one codec write
-    // from this, the audio-owning, context before the first PCM write.
-    bsp_audio_set_volume(music_volume_codec(&s_volume));
-    ESP_LOGI(TAG, "Audio volume: %d%%", music_volume_codec(&s_volume));
+    apply_desired_output();
     const size_t total = (size_t)(forest_walk_pcm_end - forest_walk_pcm_start);
     size_t offset = 0;
     TickType_t last_error_log = 0;
     for (;;) {
-        apply_pending_commands();
+        apply_desired_output();
         size_t remaining = total - offset;
         size_t bytes = remaining < PCM_CHUNK_BYTES ? remaining : PCM_CHUNK_BYTES;
         esp_err_t err = bsp_audio_write(forest_walk_pcm_start + offset, bytes);
@@ -97,7 +105,7 @@ static void music_task(void *arg) {
     }
 }
 
-esp_err_t ai_passport_music_start(void) {
+esp_err_t ai_passport_music_start(int initial_volume, bool initial_muted) {
     if (s_started) {
         return ESP_OK;
     }
@@ -110,14 +118,12 @@ esp_err_t ai_passport_music_start(void) {
     if (err != ESP_OK) {
         return err;
     }
-    s_commands = xQueueCreate(MUSIC_COMMAND_QUEUE_LENGTH, sizeof(music_cmd_t));
-    if (s_commands == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
+    // The App is authoritative before the first PCM sample: its startup
+    // facts are published here and the task below applies them from the
+    // audio-owning context. No second startup-volume constant lives here.
+    ai_passport_music_set_output(initial_volume, initial_muted);
     if (xTaskCreate(music_task, "music_stream", MUSIC_TASK_STACK, NULL,
                     MUSIC_TASK_PRIORITY, NULL) != pdPASS) {
-        vQueueDelete(s_commands);
-        s_commands = NULL;
         return ESP_ERR_NO_MEM;
     }
     s_started = true;
@@ -128,19 +134,12 @@ esp_err_t ai_passport_music_start(void) {
     return ESP_OK;
 }
 
-bool music_stream_send_command(music_cmd_t command) {
-    if (s_commands == NULL) {
-        return false; // audio unavailable: command safely no-ops
+void ai_passport_music_set_output(int volume, bool muted) {
+    unsigned packed = (unsigned)volume & MUSIC_OUTPUT_VOLUME_MASK;
+    if (muted) {
+        packed |= MUSIC_OUTPUT_MUTED_BIT;
     }
-    if (xQueueSend(s_commands, &command, 0) != pdTRUE) {
-        atomic_fetch_add(&s_dropped_commands, 1);
-        return false;
-    }
-    return true;
-}
-
-uint32_t ai_passport_music_dropped_commands(void) {
-    return (uint32_t)atomic_load(&s_dropped_commands);
+    atomic_store(&s_desired, packed);
 }
 
 int64_t ai_passport_now_us(void) {

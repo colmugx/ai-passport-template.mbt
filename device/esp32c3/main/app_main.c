@@ -22,6 +22,11 @@ extern int32_t ai_passport_mbt_forest_init(void);
 extern int32_t ai_passport_mbt_forest_update(void);
 extern int32_t ai_passport_mbt_forest_draw(void);
 extern int32_t ai_passport_mbt_forest_present(void);
+// Device-only App facts (src/device): raw press delivery and the absolute
+// startup audio output state. app_main owns no button semantics.
+extern void ai_passport_mbt_input_press(int32_t code);
+extern int32_t ai_passport_mbt_audio_volume(void);
+extern int32_t ai_passport_mbt_audio_muted(void);
 
 #define FRAME_PERIOD_US 33333LL
 #define STATS_PERIOD_US 5000000LL
@@ -56,9 +61,14 @@ void app_main(void) {
 
     // Music first: the ES8311 init is quick and also brings up the shared
     // BSP I2C bus, so the battery task below finds it ready. One FreeRTOS
-    // task owns every PCM write; the frame loop never touches audio.
+    // task owns every PCM write; the frame loop never touches audio. The
+    // App is authoritative before the first PCM sample: the transport is
+    // started with the App's own output facts (80 / unmuted), never a C
+    // constant. A failure only means silence — the App keeps running and
+    // its output states keep mirroring into a transport nobody consumes.
     log_heap("before_audio_init");
-    const esp_err_t music_err = ai_passport_music_start();
+    const esp_err_t music_err = ai_passport_music_start(
+        ai_passport_mbt_audio_volume(), ai_passport_mbt_audio_muted() != 0);
     if (music_err != ESP_OK) {
         ESP_LOGE(TAG, "Music unavailable (%s); running silent",
                  esp_err_to_name(music_err));
@@ -69,10 +79,11 @@ void app_main(void) {
     // possibly-slow first CW2017 SOC computation and then polls at 1 Hz.
     ai_passport_battery_bridge_init();
 
-    // Physical buttons last: UP/DOWN/OK only enqueue volume/mute commands
-    // onto the already-running music stream, so they may also come up when
-    // music failed (the commands then safely no-op). A button failure only
-    // disables the controls; the demo and music keep running.
+    // Physical buttons last: the bridge only enqueues raw UP/DOWN/OK press
+    // codes onto its own bounded queue, so buttons may also come up when
+    // music failed (the App's semantics still run; the output setter then
+    // reaches no codec). A button failure only disables the controls; the
+    // demo and music keep running.
     if (ai_passport_button_bridge_init() != ESP_OK) {
         ESP_LOGW(TAG, "Continuing without button controls");
     }
@@ -89,6 +100,15 @@ void app_main(void) {
 
     for (;;) {
         const int64_t frame_start_us = esp_timer_get_time();
+        // Frame order: at most ONE queued physical press per frame enters
+        // the App (a press pulse latches exactly one just_pressed edge, and
+        // draining several identical presses before one advance() would
+        // coalesce them into one action), then the App update applies the
+        // edge and mirrors the absolute output state to the transport.
+        ai_passport_button_t press;
+        if (ai_passport_button_bridge_poll(&press)) {
+            ai_passport_mbt_input_press((int32_t)press);
+        }
         (void)ai_passport_mbt_forest_update();
         const int64_t draw_start_us = esp_timer_get_time();
         (void)ai_passport_mbt_forest_draw();
@@ -110,12 +130,12 @@ void app_main(void) {
         if (elapsed_us >= STATS_PERIOD_US) {
             ESP_LOGI(TAG,
                      "frames=%" PRIu64 " missed_deadlines=%" PRIu64
-                     " dropped_cmds=%" PRIu32
+                     " dropped_button_events=%" PRIu32
                      " avg_update_us=%" PRId64 " avg_draw_us=%" PRId64
                      " avg_present_us=%" PRId64 " avg_frame_us=%" PRId64
                      " achieved_fps_x100=%" PRId64,
                      frames, missed_deadlines,
-                     ai_passport_music_dropped_commands(),
+                     ai_passport_button_dropped_events(),
                      total_update_us / (int64_t)frames,
                      total_draw_us / (int64_t)frames,
                      total_present_us / (int64_t)frames,

@@ -7,6 +7,11 @@
 priv struct DeviceScene {
   app : @app.App
   sink : EspDisplaySink
+  // Last audio output state mirrored to the music transport, initialized
+  // from the App so a fresh scene crosses no redundant write (the transport
+  // receives the same App facts explicitly at music start).
+  mut applied_volume : Int
+  mut applied_muted : Bool
 }
 
 ///|
@@ -23,7 +28,13 @@ pub fn forest_init() -> Unit {
   if scene_slot.scene is Some(_) {
     abort("Forest Walk device scene initialized twice")
   }
-  scene_slot.scene = Some({ app: @app.App::new(), sink: EspDisplaySink::new(), })
+  let app = @app.App::new()
+  scene_slot.scene = Some({
+    app,
+    sink: EspDisplaySink::new(),
+    applied_volume: app.volume(),
+    applied_muted: app.muted(),
+  })
 }
 
 ///|
@@ -48,7 +59,9 @@ const FAIRY_POSE_LEAD_US : Int64 = 100_000L
 /// One C-paced frame tick: the app receives the monotonic device clock and
 /// the loop-wrapped playback position, and itself decides when logical 30 Hz
 /// simulation steps occur. The 100 ms fairy-pose lead is passed as the
-/// generic presentation-lead fact.
+/// generic presentation-lead fact. Any physical press the frame task
+/// delivered to the App has already been applied here; afterwards the
+/// absolute desired output is mirrored to the music transport.
 #export_name("ai_passport_mbt_forest_update")
 pub fn forest_update() -> Unit {
   let scene = require_scene()
@@ -57,6 +70,7 @@ pub fn forest_update() -> Unit {
     playback_position_us=music_position_us(),
     presentation_lead_us=FAIRY_POSE_LEAD_US,
   )
+  sync_audio_output(scene)
 }
 
 ///|
