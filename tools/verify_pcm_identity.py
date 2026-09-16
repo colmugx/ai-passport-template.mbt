@@ -9,7 +9,7 @@ canonical artifact:
 Both consumers must resolve to those exact bytes:
 
   * web bundle:    .passport/web/assets/forest_walk.pcm  (byte-for-byte copy)
-  * device build:  .passport/folotoy-ai-passport/passport_music.pcm — the
+  * device build:  .passport/hosts/folotoy-ai-passport/passport_music.pcm — the
                    SDK passport CLI materializes the firmware's music file
                    from the contract's pcmLoop asset (byte-for-byte copy)
 
@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CANONICAL = REPO_ROOT / ".passport" / "assets" / "forest_walk.pcm"
 WEB_COPY = REPO_ROOT / ".passport" / "web" / "assets" / "forest_walk.pcm"
 DEVICE_COPY = (
-    REPO_ROOT / ".passport" / "folotoy-ai-passport" / "passport_music.pcm"
+    REPO_ROOT / ".passport" / "hosts" / "folotoy-ai-passport" / "passport_music.pcm"
 )
 
 

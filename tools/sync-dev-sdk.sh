@@ -39,6 +39,7 @@ rsync -a --delete --delete-excluded \
     --exclude='.github' \
     --exclude='.githooks' \
     --exclude='/src/cmd' \
+    --exclude='/external' \
     "$SDK_DIR/" "$DEST/"
 
 # Moon resolves dependencies against the published registry index, so an

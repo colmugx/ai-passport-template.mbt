@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: template
+          submodules: recursive
 
       # Template main tracks SDK main until the next SDK release publishes
       # the device surface the template's thin native entry compiles against.

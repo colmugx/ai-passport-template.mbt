@@ -4,7 +4,8 @@ There is exactly ONE application implementation: the shared MoonBit App
 executed by the SDK Web Host through src/runtime_wasm on the web side and
 by the SDK device backend through the thin src/runtime_native entry on the
 device side. The template owns no Host implementation: the legacy template
-device tree (device/, src/device, the BSP submodule) is gone, and the
+device tree (device/, src/device) is gone, the FoloToy BSP is the project's
+pinned external submodule (declared to the SDK via hostDependencies), and the
 legacy JS browser runtime (src/web, the root web/ preview shell, dev.sh)
 is gone; the SDK's own index.html with generic URL parameters is the only
 web entry.
@@ -60,8 +61,6 @@ class ProjectStructureContractTests(unittest.TestCase):
         for gone in (
             "device",
             "src/device",
-            "external",
-            ".gitmodules",
             "tools/moon_cc_capture.py",
         ):
             self.assertFalse(
@@ -69,6 +68,17 @@ class ProjectStructureContractTests(unittest.TestCase):
                 f"{gone} must not exist: Host implementation is SDK-owned "
                 "(hosts live in the SDK's hosts/folotoy-ai-passport)",
             )
+
+    def test_bsp_submodule_is_the_project_provided_dependency(self):
+        dep = REPO_ROOT / "external" / "folotoy-ai-passport"
+        self.assertTrue(
+            (dep / "components" / "bsp" / "include").is_dir(),
+            "external/folotoy-ai-passport must stay the template's pinned "
+            "submodule (the contract's hostDependencies checkout); run "
+            "git submodule update --init --recursive",
+        )
+        contract = (REPO_ROOT / "passport.json").read_text()
+        self.assertIn("external/folotoy-ai-passport", contract)
 
     def test_device_entry_is_a_thin_native_foreign_library(self):
         pkg = REPO_ROOT / "src" / "runtime_native" / "moon.pkg"

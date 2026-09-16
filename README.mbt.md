@@ -26,11 +26,11 @@ Toolchain preconditions (the SDK `passport doctor --host folotoy-ai-passport` ve
 moon run tools/passport.mbtx build device    # assets, capture, ESP-IDF build; never flashes
 ```
 
-The dispatcher delegates to the SDK `passport` CLI: it normalizes assets exactly once, captures MoonBit-generated C from the thin entry, materializes the host project into the ignored `.passport/folotoy-ai-passport/` workspace (including `passport_music.pcm`, a byte-for-byte copy of the contract's `pcmLoop` asset), and runs `idf.py reconfigure` followed by `idf.py build`. With a board connected, flash and monitor from the materialized workspace:
+The dispatcher delegates to the SDK `passport` CLI: it normalizes assets exactly once, captures MoonBit-generated C from the thin entry, materializes the host project into the ignored `.passport/hosts/folotoy-ai-passport/` workspace (including `passport_music.pcm`, a byte-for-byte copy of the contract's `pcmLoop` asset), connects the pinned FoloToy BSP (`external/folotoy-ai-passport`, the template's submodule, declared via `hostDependencies`; the SDK never carries or downloads third-party hardware code beyond that pinned revision), and runs `idf.py reconfigure` followed by `idf.py build`. With a board connected, flash and monitor from the materialized workspace:
 
 ```sh
-.passport/folotoy-ai-passport/flash.sh -p PORT
-.passport/folotoy-ai-passport/monitor.sh -p PORT
+.passport/hosts/folotoy-ai-passport/flash.sh -p PORT
+.passport/hosts/folotoy-ai-passport/monitor.sh -p PORT
 ```
 
 ## Web development and build

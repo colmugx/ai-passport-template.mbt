@@ -7,5 +7,10 @@
       "bundlePath": "assets/forest_walk.pcm",
       "pcmLoop": true
     }
-  ]
+  ],
+  "hostDependencies": {
+    "folotoy-ai-passport": {
+      "path": "external/folotoy-ai-passport"
+    }
+  }
 }
