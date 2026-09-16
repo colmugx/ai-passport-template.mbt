@@ -34,12 +34,14 @@ class CompileAudioTests(unittest.TestCase):
         self.assets = self.root / "assets"
         self.assets.mkdir()
         self.output = self.root / "out" / "music.pcm"
+        self.meta = self.root / "out" / "audio_meta.mbt"
 
     def run_tool(self, *extra_args):
         return subprocess.run(
             [sys.executable, str(SCRIPT),
              "--assets-dir", str(self.assets),
              "--output", str(self.output),
+             "--meta-output", str(self.meta),
              *extra_args],
             capture_output=True,
             text=True,
@@ -142,6 +144,27 @@ class CompileAudioTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("budget", result.stderr)
         self.assertIn(str(compile_audio.MAX_PCM_BYTES), result.stderr)
+
+    def test_meta_matches_canonical_pcm(self):
+        make_tone(self.assets / "forest_walk.wav", 1.0)
+        self.run_tool()
+        meta = self.meta.read_text()
+        samples = self.output.stat().st_size // 2
+        duration = samples * 1_000_000 // 16000
+        self.assertIn("pub const AUDIO_SAMPLE_RATE : Int = 16000", meta)
+        self.assertIn(
+            f"pub const AUDIO_TOTAL_SAMPLES : Int = {samples}", meta
+        )
+        self.assertIn(
+            f"pub const AUDIO_DURATION_US : Int64 = {duration}L", meta
+        )
+
+    def test_meta_is_deterministic(self):
+        make_tone(self.assets / "forest_walk.wav", 1.0)
+        self.run_tool()
+        first = self.meta.read_text()
+        self.run_tool()
+        self.assertEqual(first, self.meta.read_text())
 
     def test_committed_authored_asset_still_converts(self):
         # The real repository asset must keep converting cleanly.

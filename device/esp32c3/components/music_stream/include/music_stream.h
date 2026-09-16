@@ -45,3 +45,8 @@ uint32_t ai_passport_music_dropped_commands(void);
 // When music is not running, the boot clock is returned instead so the
 // fairy keeps walking at tempo in silent mode.
 int64_t ai_passport_music_position_us(void);
+
+// Monotonic device frame clock in microseconds (esp_timer passthrough).
+// Feeds the portable application's fixed-step 30 Hz accumulator; unlike the
+// music position it never wraps, so it is safe as a time base.
+int64_t ai_passport_now_us(void);

@@ -77,6 +77,34 @@ class ForestWalkAudioContractTests(unittest.TestCase):
             "generated device audio must not be committed",
         )
 
+    def test_canonical_passport_workspace_is_not_tracked(self):
+        gitignore = (REPO_ROOT / ".gitignore").read_text()
+        self.assertIn("/.passport/", gitignore)
+        tracked = subprocess_run(
+            ["git", "ls-files", ".passport/"], cwd=REPO_ROOT
+        )
+        self.assertEqual(
+            tracked,
+            "",
+            "the canonical PCM and web bundle must not be committed",
+        )
+
+    def test_committed_audio_meta_is_generated_deterministically(self):
+        meta = REPO_ROOT / "src" / "forest_walk" / "generated" / "audio_meta.mbt"
+        self.assertTrue(meta.is_file(), "audio_meta.mbt must be committed")
+        canonical = REPO_ROOT / ".passport" / "assets" / "forest_walk.pcm"
+        if not canonical.is_file():
+            self.skipTest("canonical PCM not built yet")
+        samples = canonical.stat().st_size // 2
+        duration = samples * 1_000_000 // 16000
+        text = meta.read_text()
+        self.assertIn(
+            f"pub const AUDIO_TOTAL_SAMPLES : Int = {samples}", text
+        )
+        self.assertIn(
+            f"pub const AUDIO_DURATION_US : Int64 = {duration}L", text
+        )
+
 
 def subprocess_run(args, cwd):
     import subprocess

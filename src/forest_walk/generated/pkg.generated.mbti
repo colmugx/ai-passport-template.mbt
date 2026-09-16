@@ -7,6 +7,12 @@ import {
 }
 
 // Values
+pub const AUDIO_DURATION_US : Int64 = 76400000
+
+pub const AUDIO_SAMPLE_RATE : Int = 16000
+
+pub const AUDIO_TOTAL_SAMPLES : Int = 1222400
+
 pub fn build_fairy_walk_right_sheet() -> @graphics.SpriteSheet
 
 pub fn build_forest_far_layer() -> IndexedLayer

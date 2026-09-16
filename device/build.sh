@@ -15,8 +15,9 @@ fi
 export MOON_HOME="${MOON_HOME:-$HOME/.moon}"
 export IDF_TARGET=esp32c3
 "$device_root/generate_moonbit_c.sh"
-# Normalize the authored WAV/MP3 into the flash-resident device PCM; CMake
-# embeds it, so it must exist before configure time.
+# Normalize the authored WAV/MP3 once into the canonical project PCM
+# (.passport/assets/forest_walk.pcm); the ESP-IDF music_stream component
+# embeds that exact file, so it must exist before configure time.
 python3 "$repo_root/tools/compile_audio.py"
 cd "$device_root"
 # Materialize the effective sdkconfig (created from sdkconfig.defaults when

@@ -19,3 +19,8 @@ int32_t ai_passport_battery_soc(void) { return -1; }
 // No audio hardware on hosts: the music position stays at the track start,
 // so the walk clock holds pose 0.
 int64_t ai_passport_music_position_us(void) { return 0; }
+
+// Host builds have no esp_timer; the frozen zero keeps the host-side
+// runtime tests deterministic (no time ever elapses unless a test drives
+// the app clock itself).
+int64_t ai_passport_now_us(void) { return 0; }

@@ -1,0 +1,64 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/ai-passport-template/app"
+
+import {
+  "colmugx/ai-passport/graphics",
+  "colmugx/ai-passport/input",
+}
+
+// Values
+pub const SIMULATION_HZ : Int = 30
+
+pub const VOLUME_MAX : Int = 100
+
+pub const VOLUME_MIN : Int = 0
+
+pub const VOLUME_STARTUP : Int = 80
+
+pub const VOLUME_STEP : Int = 10
+
+pub fn loop_position_us(Int64, Int64) -> Int64
+
+pub fn musical_eighths(Int64, Int) -> Int
+
+// Errors
+
+// Types and methods
+pub struct App {
+  // private fields
+}
+pub fn App::advance(Self, Int64, playback_position_us? : Int64, presentation_lead_us? : Int64) -> Unit
+pub fn App::draw(Self, battery_percent~ : Int?) -> Unit
+pub fn App::frame(Self) -> Int
+pub fn App::frame_view(Self) -> @graphics.FrameView
+pub fn App::input(Self, @input.Button, Bool) -> Unit
+pub fn App::muted(Self) -> Bool
+pub fn App::new() -> Self
+pub fn App::scroll(Self) -> Int
+pub fn App::volume(Self) -> Int
+pub fn App::walker_frame(Self) -> Int
+
+pub struct BeatClock {
+  // private fields
+}
+pub fn BeatClock::eighths(Self, Int) -> Int
+pub fn BeatClock::new() -> Self
+pub fn BeatClock::tick(Self, Int64) -> Unit
+
+pub struct Controls {
+  // private fields
+}
+pub fn Controls::apply(Self, @input.Button) -> Unit
+pub fn Controls::muted(Self) -> Bool
+pub fn Controls::new() -> Self
+pub fn Controls::volume(Self) -> Int
+
+pub struct Stepper {
+  // private fields
+}
+pub fn Stepper::new() -> Self
+pub fn Stepper::steps_due(Self, Int64) -> Int
+
+// Type aliases
+
+// Traits

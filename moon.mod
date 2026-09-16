@@ -17,7 +17,5 @@ description = "Starter application template for the FoloToy AI Passport wearable
 source = "src"
 
 import {
-  "colmugx/ai-passport@0.0.1",
+  "colmugx/ai-passport@0.0.2",
 }
-
-supported_targets = "+native+js"

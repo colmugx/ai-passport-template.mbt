@@ -18,20 +18,17 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
-      - name: Resolve published SDK
+      - name: Resolve the published SDK 0.0.2 (never a local checkout)
         run: |
           test ! -e moon.work
+          grep -q 'colmugx/ai-passport@0.0.2' moon.mod
           moon update
 
-      - name: Verify generated asset sources
-        run: |
-          ./tools/compile_assets.sh
-          git diff --exit-code
-
-      - name: Convert and verify authored device music
+      - name: Deterministic assets build (graphics + canonical audio)
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-          python3 tools/compile_audio.py
+          moon run tools/passport.mbtx assets
+          git diff --exit-code
 
       - name: Test Python asset and audio tooling
         run: |
@@ -42,15 +39,57 @@ jobs:
           moon check --target native --output-json
           moon test --target native --output-json
 
-      - name: Check and test JavaScript
+      - name: Check and test JavaScript (legacy preview still exists)
         run: |
           moon check --target js --output-json
           moon test --target js --output-json
 
-      - name: Build browser preview bundle
+      - name: Check and test wasm (runtime_wasm, ABI v0)
         run: |
-          moon build --target js
-          test -f _build/js/debug/build/web/web.js
+          moon check --target wasm --output-json
+          moon test --target wasm --output-json
+          moon build --target wasm --release --output-json
+          test -f _build/wasm/release/build/runtime_wasm/runtime_wasm.wasm
+
+      - name: Assert wasm import surface (host_pcm_write must be absent)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const mod = new WebAssembly.Module(fs.readFileSync(
+              "_build/wasm/release/build/runtime_wasm/runtime_wasm.wasm"));
+            const names = WebAssembly.Module.imports(mod).map((i) => i.name);
+            if (names.includes("host_pcm_write")) {
+              throw new Error("app.wasm imports passport.host_pcm_write (forbidden in PCM asset mode)");
+            }
+            for (const n of ["host_battery_percent", "host_set_volume", "host_set_muted", "host_playback_pos_us"]) {
+              if (!names.includes(n)) throw new Error("missing required import " + n);
+            }
+            const exports = WebAssembly.Module.exports(mod).map((e) => e.name);
+            for (const n of ["memory", "passport_frame", "passport_input", "passport_fb_ptr",
+                             "passport_fb_len", "passport_frame_dirty", "passport_frame_consume"]) {
+              if (!exports.includes(n)) throw new Error("missing required export " + n);
+            }
+            console.log("wasm ABI surface ok; imports: " + names.join(", "));
+          '
+
+      - name: Assemble the new web bundle (SDK host materialized from the published package)
+        run: |
+          moon run tools/passport.mbtx build web
+          test -f .passport/web/app.wasm
+          test -f .passport/web/passport-host.js
+          test -f .passport/web/pcm-worklet.js
+          test -f .passport/web/index.html
+          test -f .passport/web/app.html
+          test -f .passport/web/assets/forest_walk.pcm
+
+      - name: PCM artifact identity (web == device input == canonical)
+        run: |
+          python3 tools/verify_pcm_identity.py
+
+      - name: Playwright real-browser Forest Walk integration
+        run: |
+          npx -y playwright@1.63.0 install chromium --with-deps
+          node tools/web-integration/run.mjs
 
       - name: Check generated API and formatting
         run: |

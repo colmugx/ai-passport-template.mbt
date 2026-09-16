@@ -1,0 +1,57 @@
+// Temporary Project Contract v0 command dispatcher (a future SDK passport
+// CLI replaces this).
+//
+//   moon run tools/passport.mbtx assets
+//   moon run tools/passport.mbtx build web
+//   moon run tools/passport.mbtx build device
+//   moon run tools/passport.mbtx dev
+//
+// Never flashes hardware.
+
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/shell",
+  "moonbitlang/core/env",
+}
+
+async fn run_step(cmd : @shell.Cmd, what : String) -> Unit {
+  println("passport: \{what}")
+  let code = cmd.each_line(line => println("  \{line}"))
+  if code != 0 {
+    fail("passport: \{what} failed with exit code \{code}")
+  }
+}
+
+async fn main {
+  let args = @env.args()
+  let command = if args.length() >= 2 { args[1] } else { "" }
+  guard @fs.exists("moon.mod") else {
+    fail("passport: run from the repository root (moon.mod not found)")
+  }
+  match command {
+    "assets" =>
+      run_step(@shell.Cmd("moon", ["run", "tools/assets.mbtx"]), "assets")
+    "build" => {
+      let target = if args.length() >= 3 { args[2] } else { "" }
+      match target {
+        "web" =>
+          run_step(
+            @shell.Cmd("moon", ["run", "tools/build.mbtx", "web"]),
+            "build web",
+          )
+        "device" =>
+          // Delegates to the proven device build path (ESP-IDF 5.5.3,
+          // MoonBit C capture, canonical PCM embedding). Never flashes.
+          run_step(@shell.Cmd("bash", ["device/build.sh"]), "build device")
+        _ =>
+          fail("passport build: expected 'web' or 'device', got: '\{target}'")
+      }
+    }
+    "dev" => run_step(@shell.Cmd("moon", ["run", "tools/dev.mbtx"]), "dev")
+    _ =>
+      fail(
+        "passport: unknown command '\{command}'; expected one of: assets, build web, build device, dev",
+      )
+  }
+}

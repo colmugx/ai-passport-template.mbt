@@ -143,6 +143,10 @@ uint32_t ai_passport_music_dropped_commands(void) {
     return (uint32_t)atomic_load(&s_dropped_commands);
 }
 
+int64_t ai_passport_now_us(void) {
+    return esp_timer_get_time();
+}
+
 int64_t ai_passport_music_position_us(void) {
     if (!s_started) {
         // Silent mode (init failed or not yet started): keep the walk clock
