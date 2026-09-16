@@ -195,13 +195,18 @@ pub fn App::frame(self : App) -> Int {
 
 ///|
 /// Horizontal world scroll offset in whole logical pixels (floored from the
-/// internal quarter-pixel accumulator; 22.5 px/s at 30 Hz).
+/// internal sixteenth-pixel accumulator: 9/16 logical px per 30 Hz update,
+/// i.e. 16.875 px/s — three quarters of the original pace, matching the 4/4
+/// walk cycle so one footstep still covers the same ground).
 pub fn App::scroll(self : App) -> Int {
   self.state.scroll()
 }
 
 ///|
-/// Current fairy pose, always `0..=5` (one pose per musical eighth).
+/// Current fairy pose, always `0..=5`. The six-pose walk cycle is spread
+/// across the eight eighth notes of one 4/4 bar (`pose = floor(eighths *
+/// 3 / 4) % 6`), so one pose lasts 4/3 eighths and pose 0 lands on the
+/// downbeat.
 pub fn App::walker_frame(self : App) -> Int {
   self.state.walker_frame()
 }

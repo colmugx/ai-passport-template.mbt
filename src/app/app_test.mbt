@@ -56,6 +56,42 @@ test "scroll advances at 16.875 logical px/s" {
 }
 
 ///|
+/// R3A timing golden guard. Pins the intentional d50596d product cadence so
+/// a future renderer or scheduler "optimization" cannot silently restore
+/// the old behavior (22.5 px/s quarter-pixel scroll, one pose per eighth):
+/// the scroll golden above (30 updates -> 16, 60 updates -> 33) and the
+/// full eighth-to-pose mapping of the production App — six poses spread
+/// across the eight eighths of one 4/4 bar, pose 0 on the downbeat and
+/// again on the wrap at eighth 8. Positions are live playback facts at one
+/// eighth per 263_158 us, exactly what hosts feed.
+test "timing golden: 16.875 px/s scroll and eighth-to-pose sequence" {
+  let app = @app.App::new()
+  let mut now = 0L
+  app.advance(now)
+  for _ in 0..<30 {
+    now += 33334L
+    app.advance(now)
+  }
+  assert_eq(app.scroll(), 16)
+  for _ in 0..<30 {
+    now += 33334L
+    app.advance(now)
+  }
+  assert_eq(app.scroll(), 33)
+  // Eighth index e realized as a live playback position; the production
+  // App chain (position -> loop wrap -> eighth -> State::update pose).
+  let poses : Array[Int] = [0, 0, 1, 2, 3, 3, 4, 5, 0]
+  let beat = @app.App::new()
+  beat.advance(0L)
+  let mut t = 0L
+  for e in 0..<9 {
+    t += 33334L
+    beat.advance(t, playback_position_us=(e * 263_158).to_int64())
+    assert_eq(beat.walker_frame(), poses[e])
+  }
+}
+
+///|
 test "BPM 76 eighth conversion" {
   // One eighth at 76 dotted-quarter BPM is 60000000 / (76 * 3) us
   // = 263157.89...; the first eighth starts at 263158 us.
