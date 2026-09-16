@@ -15,7 +15,7 @@ import {
   "moonbitlang/core/env",
 }
 
-const BUNDLE_URL_PATH : String = "app.html"
+const DEV_URL_PATH : String = "index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1"
 
 async fn run_step(cmd : @shell.Cmd, what : String) -> Unit {
   println("dev: \{what}")
@@ -41,9 +41,9 @@ async fn main {
   guard @fs.exists(".passport/web/app.wasm") else {
     fail("dev: bundle incomplete: .passport/web/app.wasm missing")
   }
-  let url = "http://127.0.0.1:\{port}/\{BUNDLE_URL_PATH}"
+  let url = "http://127.0.0.1:\{port}/\{DEV_URL_PATH}"
   println("")
-  println("Forest Walk (wasm, PCM asset mode): \{url}")
+  println("Forest Walk (wasm, SDK DOM auto-boot, PCM asset mode, loop): \{url}")
   println("Up/DOWN volume, OK mute — handled by the MoonBit app inside app.wasm.")
   println("Press Ctrl-C to stop.")
   // Serve until interrupted; the server shares the process group, so Ctrl-C

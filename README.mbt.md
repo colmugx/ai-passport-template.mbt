@@ -1,18 +1,20 @@
 # AI Passport application template
 
 
-`moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.1`. Run `moon update` to resolve it. No local SDK workspace is needed to build or test this template, including in CI.
+`moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.3`. Run `moon update` to resolve it. No local SDK workspace is needed to build or test this template, including in CI.
 
 ```text
-Forest Walk application logic
+Forest Walk application logic (src/forest_walk + src/app, shared)
          |
          v
 colmugx/ai-passport SDK
       /          \
- Web runtime   Device runtime
+ runtime_wasm  src/device
+ (wasm -> SDK   (ESP-IDF/BSP)
+  Web Host)
 ```
 
-The browser preview (`src/web` + `web/`) presents the SDK's rasterized 120×160 RGB565 frame through `FrameView` onto an HTML Canvas at 4x scale and plays the authored music file through WebAudio. It is a development preview, not a hardware emulator. The ESP32-C3 foundation has already shown the MoonBit probe and RGB smoke screen on a physical FoloToy board. The T4.0-B firmware builds the same root Forest Walk application for device presentation, T4.1-A adds the real CW2017 battery HUD and flash-resident looping music (audio playback confirmed on the board), and T4.1-B adds the physical volume buttons through the official BSP ADC button driver (UP volume+, DOWN volume−, OK mute; startup volume 80%). Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
+Browser execution is the shared MoonBit App compiled to `app.wasm` and run by the SDK Web Host: the bundle's only page is the SDK's own `index.html`, whose DOM auto-boot in `passport-host.js` instantiates the wasm app and is configured generically through URL parameters (`?pcm=...&pcmLoop=1`). The template owns no browser bootstrap JavaScript of its own. The ESP32-C3 foundation has already shown the MoonBit probe and RGB smoke screen on a physical FoloToy board. The T4.0-B firmware builds the same root Forest Walk application for device presentation, T4.1-A adds the real CW2017 battery HUD and flash-resident looping music (audio playback confirmed on the board), and T4.1-B adds the physical volume buttons through the official BSP ADC button driver (UP volume+, DOWN volume−, OK mute; startup volume 80%). Application code stays independent of browser and device APIs; runtimes own those integrations and audio playback.
 
 ## ESP32-C3 Forest Walk firmware
 
@@ -28,31 +30,38 @@ After installing the pinned MoonBit toolchain and sourcing ESP-IDF 5.5.3's `expo
 
 `device/build.sh` verifies the MoonBit runtime source hashes, runs `moon build src/device --target native --release` with the device package's `options.link.native.cc` temporarily pointed at `tools/moon_cc_capture.py` for that invocation only (the committed `moon.pkg` carries no override, so ordinary host native builds use the standard Moon toolchain), converts the authored music into `generated/forest_walk.pcm`, and then runs ESP-IDF. The wrapper captures Moon-generated C under the ignored `device/esp32c3/generated/` directory. ESP-IDF compiles that C, the matching MoonBit runtime source, and the flash-embedded music PCM with `riscv32-esp-elf-gcc`; no host MoonBit object or manually built archive enters the firmware. See [device/esp32c3/README.md](device/esp32c3/README.md) for the toolchain pins and build contract.
 
-## Browser preview
+## Web development and build
 
-One command builds the MoonBit JS target and serves the preview:
+The supported web build command assembles `.passport/web/` (app.wasm, the SDK Web Host files copied byte-for-byte from the resolved published SDK package, and the canonical PCM under `assets/`):
 
 ```sh
-./dev.sh          # serves http://localhost:8000/  (PORT=9000 ./dev.sh to change)
+moon run tools/passport.mbtx build web
 ```
 
-Requires the MoonBit toolchain and `python3` (used only as the static file server); no npm dependencies. The script builds `src/web` for the JS target, assembles the bundle into `web/dist/`, and serves the `web/` directory. Open the printed URL in a browser.
+The supported web development command builds that bundle, serves it over localhost, and prints the URL:
 
-The ambient scene starts walking and scrolling immediately at 22.5 logical pixels per second. There are no speed or pause controls; ArrowUp, ArrowDown, Space and Enter are unused. Click **Enable sound** to unlock WebAudio: the preview fetches the authored music file, decodes it natively in the browser and loops it; the nearby status shows whether sound is active. Browsers require this user gesture before audio can play. Before sound is enabled, the preview still animates using a temporary visual beat clock. The battery HUD shows a fixed `82%` fixture supplied by the browser runtime.
+```sh
+moon run tools/passport.mbtx dev
+# http://127.0.0.1:8000/index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1
+# (PORT=9000 moon run tools/passport.mbtx dev to change the port; Ctrl-C stops)
+```
+
+Requires the MoonBit toolchain and `python3` (used only as the static file server); no npm dependencies. The dev tool contains no browser runtime logic — the SDK Web Host boots the application from `index.html` with the PCM asset configured through URL parameters. ArrowUp/ArrowDown adjust volume and Enter toggles mute (handled by the MoonBit app inside `app.wasm`, same semantics as the device buttons); click or press a key once to unlock the browser AudioContext.
 
 How a frame reaches the screen (the SDK rasterizer stays authoritative; the browser never redraws SDK content with Canvas2D primitives):
 
 ```text
-Forest Walk State::draw
-  -> SDK @graphics.Canvas (logical 120x160)
-  -> Canvas::frame_view()          (RGB565 framebuffer view)
-  -> FrameView::copy_rgb565_row    (row by row, reused scratch buffers)
+shared MoonBit App (src/app + src/forest_walk)
+  -> compiled to app.wasm (src/runtime_wasm, ABI v0 exports)
+  -> SDK Web Host (passport-host.js DOM auto-boot)
+  -> app.wasm presents the logical frame into linear memory
+  -> host reads the RGB565 framebuffer view (Canvas::frame_view)
   -> RGB565 -> RGBA conversion     (exact bit replication, alpha 255)
   -> persistent ImageData + putImageData (1:1 onto the 120x160 canvas)
-  -> CSS integer scaling to 480x640 with image-rendering: pixelated
+  -> CSS integer scaling with image-rendering: pixelated
 ```
 
-The application updates at a fixed 30 Hz simulation rate driven by `requestAnimationFrame` (elapsed time is accumulated and capped after tab suspension); drawing happens every animation frame. The fairy pose is beat-locked to the music: one pose per eighth note, completing one full walk cycle per 6/8 bar (about 1.58 seconds at the 76 dotted-quarter-BPM tempo, i.e. quarter-note 114). Music is file-based: `dev.sh` copies the single authored WAV or MP3 into the preview bundle and the browser decodes and loops it natively — no PCM synthesis runs in the preview. Once sound starts, the runtime supplies the musical position from the audible WebAudio playback head (loop position wrapped at the track duration) against the application's music tempo, and the fairy pose follows it directly; before sound is enabled, a temporary visual clock supplies the same eighths. Hiding the tab suspends WebAudio so the audible timeline stays frozen.
+The application updates at a fixed 30 Hz simulation rate. The scene is ambient: 16.875 logical scroll pixels per second, with no speed or pause controls. The fairy pose is beat-locked to the music: the six-pose walk cycle spans exactly one 4/4 bar of eight eighth notes at the application tempo (114 quarter BPM, i.e. 76 dotted-quarter BPM — one pose per 4/3 eighths, pose 0 on the downbeat). Music is the canonical normalized PCM asset (`assets/forest_walk.pcm`, PCM16 LE mono 16 kHz): the Web Host fetches it, plays it through an AudioWorklet, and loops it at the exact PCM sample boundary; the fairy pose derives statelessly from the audible playback head. Before audio unlocks, the host still runs frames and the app falls back to its monotonic beat clock. Hiding the tab suspends WebAudio so the audible timeline stays frozen.
 
 ## Forest Walk assets
 
@@ -89,9 +98,10 @@ file into the device playback format — signed PCM16 little-endian, mono,
 reporting source and generated durations and sizes, refusing tracks over the
 `0x280000`-byte device flash budget (the PCM shares the factory app
 partition with the firmware), and failing on any conversion error. The
-authored file is committed; the generated PCM is not. The browser preview
-plays the authored file directly with native decoding. CI installs ffmpeg
-and runs the same conversion.
+authored file is committed; the generated PCM is not. Both runtimes play
+the normalized artifact: the device embeds it, the web bundle serves a
+byte-identical copy (`tools/verify_pcm_identity.py` proves all three
+copies match). CI installs ffmpeg and runs the same conversion.
 
 ## Develop
 
@@ -102,11 +112,8 @@ moon update
 ./tools/compile_assets.sh
 moon check --target native --output-json
 moon test --target native --output-json
-moon check --target js --output-json
-moon test --target js --output-json
 moon info
 moon fmt
-moon build --target js
 git diff --exit-code
 ```
 

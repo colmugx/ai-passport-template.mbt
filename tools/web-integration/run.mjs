@@ -1,4 +1,4 @@
-// Real-browser integration test for the NEW template wasm bundle (R2A).
+// Real-browser integration test for the wasm bundle (R2C).
 //
 //   node tools/web-integration/run.mjs
 //
@@ -7,12 +7,12 @@
 // Exit 2 = missing prerequisites (never silently skipped), 1 = failure.
 //
 // Uses the pinned playwright (1.63.0) exactly like the SDK CI: bare import
-// first, then the npx cache. The page under test is the bundle's configured
-// entry (app.html: the unmodified SDK Web Host — passport-host.js +
-// pcm-worklet.js from the published dependency — booted through its public
-// createHost API in PCM asset mode, because the published 0.0.2 index.html
-// auto-boot is broken upstream) running this project's app.wasm against the
-// canonical .passport/web/assets/forest_walk.pcm.
+// first, then the npx cache. The page under test is the SDK's own
+// index.html booted by the published SDK 0.0.3 DOM auto-boot inside
+// passport-host.js, configured generically through URL parameters
+// (?pcm=./assets/forest_walk.pcm&pcmLoop=1) — the exact production/dev
+// boot path. No page code imports createHost, and the bundle must not
+// contain a template-generated app.html.
 
 "use strict";
 
@@ -31,7 +31,7 @@ const REQUIRED = [
   "index.html",
   "assets/forest_walk.pcm",
 ];
-const PAGE = "app.html";
+const PAGE = "index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1";
 const PINNED_PLAYWRIGHT = "1.63.0";
 
 function die(code, message) {
@@ -48,6 +48,15 @@ for (const rel of REQUIRED) {
       `missing ${path.join(BUNDLE, rel)}; run: moon run tools/passport.mbtx build web`,
     );
   }
+}
+
+// The template must not own browser bootstrap: no generated app.html may
+// exist next to the SDK's index.html.
+if (fs.existsSync(path.join(BUNDLE, "app.html"))) {
+  die(
+    1,
+    `${path.join(BUNDLE, "app.html")} exists — the template must not generate a browser bootstrap page; only the SDK index.html is the entry`,
+  );
 }
 
 // Static import-surface assertion (CI mirrors this independently).
@@ -240,7 +249,8 @@ try {
     `ok: frames advance (${framesProbe.firstFrame} -> ${framesProbe.framesNow}), framebuffer changed (${differing} px, ${lit} non-zero)`,
   );
 
-  // 4/5/6. Normalized PCM asset mode: configured, loaded, consumed.
+  // 4/5/6. Normalized PCM asset mode: configured from the URL parameters,
+  // loaded, consumed, looping.
   const asset = await page.evaluate(async () => {
     const host = globalThis.__passportHost;
     await host.waitForAudioAsset().catch(() => {});
@@ -248,6 +258,11 @@ try {
   });
   if (!asset.configured || asset.source !== "url") {
     fail(`host not in PCM asset mode: ${JSON.stringify(asset)}`);
+  }
+  if (asset.url !== "./assets/forest_walk.pcm") {
+    fail(
+      `PCM asset was not configured from the ?pcm= URL parameter: ${JSON.stringify(asset)}`,
+    );
   }
   if (asset.error) {
     fail(`audio asset failed to load: ${asset.error}`);

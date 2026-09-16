@@ -12,8 +12,8 @@ if ! command -v moon >/dev/null 2>&1; then
 fi
 version_output="$(moon version)"
 moon_version="${version_output%%$'\n'*}"
-if [[ "$moon_version" != "moon 0.1.20260904 (94521db 2026-09-04)" ]]; then
-    echo "Expected MoonBit 0.1.20260904 (94521db), got: $moon_version" >&2
+if [[ "$moon_version" != "moon 0.1.20260915 (2e1a46d 2026-09-15)" ]]; then
+    echo "Expected MoonBit 0.1.20260915 (2e1a46d), got: $moon_version" >&2
     exit 1
 fi
 (

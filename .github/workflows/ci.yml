@@ -18,10 +18,11 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
-      - name: Resolve the published SDK 0.0.2 (never a local checkout)
+      - name: Resolve the published SDK 0.0.3 (never a local checkout)
         run: |
           test ! -e moon.work
-          grep -q 'colmugx/ai-passport@0.0.2' moon.mod
+          grep -q 'colmugx/ai-passport@0.0.3' moon.mod
+          ! grep -q 'colmugx/ai-passport@0.0.2' moon.mod
           moon update
 
       # The ONE web-build entry point: `build web` runs tools/assets.mbtx
@@ -37,8 +38,10 @@ jobs:
           test -f .passport/web/passport-host.js
           test -f .passport/web/pcm-worklet.js
           test -f .passport/web/index.html
-          test -f .passport/web/app.html
           test -f .passport/web/assets/forest_walk.pcm
+          # The SDK index.html is the ONLY web entry; the template must
+          # never generate its own browser bootstrap page.
+          test ! -e .passport/web/app.html
           git diff --exit-code
 
       - name: Test Python asset and audio tooling
@@ -50,7 +53,10 @@ jobs:
           moon check --target native --output-json
           moon test --target native --output-json
 
-      - name: Check and test JavaScript (legacy preview still exists)
+      # Portability check for the shared MoonBit packages only: the
+      # supported browser runtime is wasm, and the JS target builds no
+      # browser preview artifact.
+      - name: Check and test JavaScript (shared-package portability)
         run: |
           moon check --target js --output-json
           moon test --target js --output-json

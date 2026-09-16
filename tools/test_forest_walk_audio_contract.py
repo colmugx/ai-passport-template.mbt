@@ -11,7 +11,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FOREST_WALK = REPO_ROOT / "src" / "forest_walk"
-WEB = REPO_ROOT / "src" / "web"
+RUNTIME_WASM = REPO_ROOT / "src" / "runtime_wasm"
 ASSETS = REPO_ROOT / "assets" / "audio"
 SOURCES = ("wav", "mp3")
 
@@ -38,8 +38,12 @@ class ForestWalkAudioContractTests(unittest.TestCase):
         self.assertNotIn("ai-passport/music", pkg)
         self.assertNotIn("ai-passport/audio", pkg)
 
-    def test_browser_runtime_has_no_sdk_player(self):
-        for path in package_sources(WEB):
+    def test_wasm_runtime_has_no_sdk_player(self):
+        # The wasm entry package (the only browser-side runtime since the
+        # legacy JS preview was removed) must not pull in the SDK MIDI/song
+        # synthesis or PCM player: Forest Walk plays the canonical
+        # normalized PCM asset through the Web Host.
+        for path in package_sources(RUNTIME_WASM):
             for line in path.read_text().splitlines():
                 self.assertNotIn(
                     "@music.",
@@ -51,7 +55,7 @@ class ForestWalkAudioContractTests(unittest.TestCase):
                     line,
                     f"{path.name} still references the SDK PCM player",
                 )
-        pkg = (WEB / "moon.pkg").read_text()
+        pkg = (RUNTIME_WASM / "moon.pkg").read_text()
         self.assertNotIn("ai-passport/music", pkg)
         self.assertNotIn("ai-passport/audio", pkg)
 

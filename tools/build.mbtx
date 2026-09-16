@@ -1,5 +1,4 @@
-// Temporary Project Contract v0 web build (a future SDK passport CLI
-// replaces this).
+// Project web build (a future SDK passport CLI may replace this).
 //
 //   moon run tools/build.mbtx web
 //
@@ -8,15 +7,15 @@
 //   2. compile the runtime_wasm entry package for the MoonBit wasm target
 //      against the PUBLISHED ai-passport SDK resolved by moon.mod
 //   3. assemble .passport/web/: app.wasm, the SDK Web Host files
-//      materialized from the resolved published package, and the canonical
-//      PCM copied byte-for-byte into assets/
+//      copied byte-for-byte from the resolved published package, and the
+//      canonical PCM copied byte-for-byte into assets/
 //
-// The served host configuration is PCM asset mode:
-//   pcmAssetUrl = "./assets/forest_walk.pcm", pcmLoop = true
-// passed programmatically by the generated app.html entry page, which calls
-// the SDK's public `createHost` directly (the temporary SDK 0.0.2 bootstrap
-// workaround — see write_entry_page below). Authored MP3/WAV are never
-// served.
+// The bundle's only web entry is the SDK's own index.html, booted by the
+// SDK 0.0.3 DOM auto-boot in passport-host.js. The project-specific host
+// configuration is generic URL parameters on that page:
+//   index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1
+// This template owns no browser bootstrap JavaScript. Authored MP3/WAV are
+// never served.
 
 import {
   "moonbitlang/async",
@@ -45,7 +44,7 @@ async fn main {
   let args = @env.args()
   let target = if args.length() >= 2 { args[1] } else { "" }
   guard target == "web" else {
-    fail("build: expected 'web' (temporary R2A scope), got: '\{target}'")
+    fail("build: expected 'web', got: '\{target}'")
   }
   guard @fs.exists("moon.mod") else {
     fail("build web: run from the repository root (moon.mod not found)")
@@ -71,9 +70,15 @@ async fn main {
   copy_file("\{sdk}/hosts/web/pcm-worklet.js", "\{BUNDLE_DIR}/pcm-worklet.js")
   copy_file("\{sdk}/hosts/web/index.html", "\{BUNDLE_DIR}/index.html")
   copy_file(CANONICAL_PCM, "\{BUNDLE_DIR}/assets/forest_walk.pcm")
-  write_entry_page()
+  // The SDK index.html is the only web entry: drop any stale
+  // template-generated bootstrap page left by an older build.
+  if @fs.exists("\{BUNDLE_DIR}/app.html") {
+    @fs.remove("\{BUNDLE_DIR}/app.html")
+  }
   println("build web: bundle assembled at \{BUNDLE_DIR}")
-  println("build web: entry page: /app.html (PCM asset mode, loop)")
+  println(
+    "build web: entry: /index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1 (SDK DOM auto-boot, PCM asset mode, loop)",
+  )
 }
 
 ///|
@@ -118,71 +123,3 @@ async fn copy_file(from : String, to : String) -> Unit {
   let data = @fs.read_file(from)
   @fs.write_file(to, data)
 }
-
-///|
-/// Writes the temporary bundle entry page `.passport/web/app.html`.
-///
-/// TEMPORARY SDK 0.0.2 BOOTSTRAP WORKAROUND: the published 0.0.2
-/// `passport-host.js` auto-boot is broken (`autoBootFromDom` references
-/// `params`, which only exists inside `createHost`, so it always throws).
-/// This page is pure host bootstrap with ZERO application semantics: it
-/// imports the SDK's public `createHost`, passes exactly the project host
-/// configuration —
-///   canvas, pcmAssetUrl = "./assets/forest_walk.pcm", pcmLoop = true
-/// — starts the host, and resumes audio on the first user gesture. A
-/// published SDK 0.0.3 removes the need for this page; then point the
-/// bundle at the SDK index.html and drop this generator.
-async fn write_entry_page() -> Unit {
-  @fs.write_file("\{BUNDLE_DIR}/app.html", ENTRY_PAGE)
-}
-
-///|
-const ENTRY_PAGE : String =
-  #|<!doctype html>
-  #|<html lang="en">
-  #|<head>
-  #|<meta charset="utf-8">
-  #|<meta name="viewport" content="width=device-width, initial-scale=1">
-  #|<title>Forest Walk — AI Passport wasm app</title>
-  #|<style>
-  #|  :root { color-scheme: dark; }
-  #|  body {
-  #|    margin: 2rem;
-  #|    background: #101418;
-  #|    color: #cfd8dc;
-  #|    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  #|  }
-  #|  #passport-canvas {
-  #|    display: block;
-  #|    background: #000;
-  #|    image-rendering: pixelated;
-  #|  }
-  #|  #passport-status { margin-top: 0.75rem; color: #9e9e9e; }
-  #|  .hint { margin-top: 0.5rem; color: #607d8b; }
-  #|</style>
-  #|</head>
-  #|<body>
-  #|<canvas id="passport-canvas" width="120" height="160"></canvas>
-  #|<div id="passport-status">booting…</div>
-  #|<p class="hint">
-  #|  ArrowUp / ArrowDown = volume · Enter = mute — handled by the MoonBit
-  #|  application inside app.wasm. Click or press a key once to enable sound.
-  #|</p>
-  #|<script type="module">
-  #|import { createHost } from "./passport-host.js";
-  #|const host = await createHost({
-  #|  canvas: document.getElementById("passport-canvas"),
-  #|  pcmAssetUrl: "./assets/forest_walk.pcm",
-  #|  pcmLoop: true,
-  #|});
-  #|globalThis.__passportHost = host;
-  #|host.start();
-  #|const resume = () => host.resumeAudio();
-  #|window.addEventListener("keydown", resume);
-  #|window.addEventListener("pointerdown", resume);
-  #|document.getElementById("passport-status").textContent = host.audio.enabled
-  #|  ? "running"
-  #|  : "running (audio unavailable)";
-  #|</script>
-  #|</body>
-  #|</html>
