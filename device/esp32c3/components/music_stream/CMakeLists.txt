@@ -2,7 +2,10 @@
 # the web bundle serves the same file. There is no device-side conversion:
 # tools/compile_audio.py writes .passport/assets/forest_walk.pcm once per
 # build workflow and both consumers resolve to it (tools/verify_pcm_identity.py).
-get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+# Anchor on this list file's own directory: ESP-IDF's early requirement scan
+# include()s component lists with CMAKE_CURRENT_SOURCE_DIR left at the
+# project dir, so counting "../.." from there lands above the repo root.
+get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../.." ABSOLUTE)
 set(MUSIC_PCM_FILE "${REPO_ROOT}/.passport/assets/forest_walk.pcm")
 if(NOT EXISTS "${MUSIC_PCM_FILE}")
     message(FATAL_ERROR "Device music PCM missing: ${MUSIC_PCM_FILE}; run moon run tools/passport.mbtx assets")

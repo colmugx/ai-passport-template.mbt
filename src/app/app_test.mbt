@@ -125,21 +125,93 @@ test "unavailable playback falls back to the monotonic clock" {
   let app = @app.App::new()
   // First tick establishes the baseline only.
   app.advance(0L)
-  // Eighth at 76 BPM is ~263158 us; after 1 s of fallback clock the pose
-  // is eighths(1s) % 6 = 3 % 6.
-  app.advance(1_000_000L)
+  // None (playback unavailable): eighth at 76 BPM is ~263158 us; after 1 s
+  // of fallback clock the pose is eighths(1s) % 6 = 3 % 6.
+  app.advance(1_000_000L, playback_position_us?=None)
   inspect(app.walker_frame(), content="3")
-  app.advance(2_000_000L)
+  app.advance(2_000_000L, playback_position_us?=None)
   inspect(app.walker_frame(), content="1")
-  // A zero playback position (audio locked, host reports 0) also falls
-  // back instead of freezing the fairy.
-  let locked = @app.App::new()
-  locked.advance(0L)
-  locked.advance(1_000_000L, playback_position_us=0L)
-  inspect(locked.walker_frame(), content="3")
   // Live playback then takes over from the fallback clock.
   app.advance(3_000_000L, playback_position_us=10_000_000L)
   inspect(app.walker_frame(), content="\{eighths_at(10_000_000L) % 6}")
+}
+
+///|
+test "None means fallback: the beat clock advances from frame deltas" {
+  let app = @app.App::new()
+  app.advance(0L, playback_position_us?=None)
+  // No host time banked on the baseline tick: eighth zero.
+  inspect(app.walker_frame(), content="0")
+  // Two and a half seconds of host time with None reports: the fallback
+  // clock accumulates deltas and reaches eighths(2_500_000) = 9 -> 9 % 6.
+  app.advance(2_500_000L, playback_position_us?=None)
+  inspect(app.walker_frame(), content="\{eighths_at(2_500_000L) % 6}")
+}
+
+///|
+test "Some(0) means live playback, not the fallback clock" {
+  let app = @app.App::new()
+  // A large presentation lead lifts the live zero position far past eighth
+  // zero (eighths(10 s) % 6 = 2), while the fallback path on these two
+  // ticks would still be pinned at eighth zero — the assertion cannot pass
+  // by accident.
+  app.advance(
+    0L,
+    playback_position_us?=Some(0L),
+    presentation_lead_us=10_000_000L,
+  )
+  app.advance(
+    33_334L,
+    playback_position_us?=Some(0L),
+    presentation_lead_us=10_000_000L,
+  )
+  inspect(app.walker_frame(), content="\{eighths_at(10_000_000L) % 6}")
+}
+
+///|
+test "exact loop boundary stays on the live PCM timeline" {
+  let duration = @generated.AUDIO_DURATION_US
+  let app = @app.App::new()
+  app.advance(0L)
+  // Near the end of the loop the pose follows the live timeline.
+  app.advance(33_334L, playback_position_us?=Some(duration - 1_000L))
+  inspect(app.walker_frame(), content="\{eighths_at(duration - 1_000L) % 6}")
+  // The transport wraps: the very next live report is exactly 0, and it is
+  // still live — pose derived from the PCM timeline, not the fallback.
+  app.advance(66_668L, playback_position_us?=Some(0L))
+  // Follow-up live positions keep riding the loop: eighth of 500 ms.
+  app.advance(100_002L, playback_position_us?=Some(500_000L))
+  inspect(app.walker_frame(), content="\{eighths_at(500_000L) % 6}")
+  // If either Some(0) had been treated as unavailable, the fallback clock
+  // would only have ~66_668 us banked here — eighth 0, pose 0 — and both
+  // assertions above would fail.
+}
+
+///|
+test "live zero positions never advance the fallback beat clock" {
+  let app = @app.App::new()
+  app.advance(0L, playback_position_us?=Some(0L))
+  // Two seconds of host time while playback reports a live zero (track
+  // start / loop boundary): the fallback clock must stay untouched, so the
+  // pose is the live eighth 0 — not eighths(2 s) % 6 = 1.
+  app.advance(2_000_000L, playback_position_us?=Some(0L))
+  inspect(app.walker_frame(), content="0")
+  // The moment reports stop, the fallback takes over from scratch: 1 s of
+  // delta reaches eighth 3, proving nothing was banked during playback.
+  app.advance(3_000_000L, playback_position_us?=None)
+  inspect(app.walker_frame(), content="3")
+}
+
+///|
+test "negative playback positions fall back safely" {
+  let app = @app.App::new()
+  app.advance(0L)
+  // No healthy host emits a negative position; if one ever arrives it is
+  // treated as unavailable and the fallback clock keeps the fairy moving.
+  app.advance(1_000_000L, playback_position_us?=Some(-5L))
+  inspect(app.walker_frame(), content="3")
+  app.advance(2_000_000L, playback_position_us?=Some(-500_000_000L))
+  inspect(app.walker_frame(), content="1")
 }
 
 ///|

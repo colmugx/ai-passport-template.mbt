@@ -41,13 +41,23 @@ esp_err_t ai_passport_music_start(int initial_volume, bool initial_muted);
 // a change exactly once.
 void ai_passport_music_set_output(int volume, bool muted);
 
+// Playback availability of the transport, for the portable App's playback
+// Option: 1 = the PCM streaming task started successfully (every reported
+// position — including exactly 0, the track start and the PCM loop boundary
+// — is live); 0 = music is unavailable (startup failed or not started) and
+// positions carry no musical meaning. Read-only and cheap; call it from the
+// render loop next to ai_passport_music_position_us(). Availability is
+// never inferred from the position value.
+int32_t ai_passport_music_available(void);
+
 // Musical position of device playback in microseconds within the current
 // loop iteration, for the visual walk clock. Read-only and cheap: call it
 // from the render loop. While the streaming task runs, the position is the
-// loop-wrapped write offset, which leads the audible signal by at most the
-// I2S DMA queue (about 100 ms — a fraction of one eighth note at 76 BPM).
-// When music is not running, the boot clock is returned instead so the
-// fairy keeps walking at tempo in silent mode.
+// loop-wrapped write offset — 0 at the loop boundary — which leads the
+// audible signal by at most the I2S DMA queue (about 100 ms — a fraction of
+// one eighth note at 76 BPM). When music is not running the position is 0
+// and carries no meaning: consult ai_passport_music_available() and let the
+// portable App's fallback beat clock own unavailability.
 int64_t ai_passport_music_position_us(void);
 
 // Monotonic device frame clock in microseconds (esp_timer passthrough).

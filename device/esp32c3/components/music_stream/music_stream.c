@@ -142,15 +142,21 @@ void ai_passport_music_set_output(int volume, bool muted) {
     atomic_store(&s_desired, packed);
 }
 
+int32_t ai_passport_music_available(void) {
+    return s_started ? 1 : 0;
+}
+
 int64_t ai_passport_now_us(void) {
     return esp_timer_get_time();
 }
 
 int64_t ai_passport_music_position_us(void) {
     if (!s_started) {
-        // Silent mode (init failed or not yet started): keep the walk clock
-        // moving on the boot timeline so the fairy still steps at tempo.
-        return esp_timer_get_time();
+        // Unavailable: no musical meaning. The boot clock is never
+        // fabricated into a position here; availability — not the position
+        // value — reports the failure, and the portable App's fallback
+        // beat clock owns unavailability.
+        return 0;
     }
     const int sample = atomic_load(&s_loop_sample);
     return (int64_t)sample * 1000000LL / MUSIC_SAMPLE_RATE_HZ;

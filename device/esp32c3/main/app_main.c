@@ -23,8 +23,10 @@ extern int32_t ai_passport_mbt_forest_update(void);
 extern int32_t ai_passport_mbt_forest_draw(void);
 extern int32_t ai_passport_mbt_forest_present(void);
 // Device-only App facts (src/device): raw press delivery and the absolute
-// startup audio output state. app_main owns no button semantics.
-extern void ai_passport_mbt_input_press(int32_t code);
+// startup audio output state. app_main owns no button semantics. Verified
+// against the captured C (generated/moonbit): every MoonBit export —
+// including the Unit-returning ones — has C type int32_t(...).
+extern int32_t ai_passport_mbt_input_press(int32_t code);
 extern int32_t ai_passport_mbt_audio_volume(void);
 extern int32_t ai_passport_mbt_audio_muted(void);
 
@@ -107,7 +109,7 @@ void app_main(void) {
         // edge and mirrors the absolute output state to the transport.
         ai_passport_button_t press;
         if (ai_passport_button_bridge_poll(&press)) {
-            ai_passport_mbt_input_press((int32_t)press);
+            (void)ai_passport_mbt_input_press((int32_t)press);
         }
         (void)ai_passport_mbt_forest_update();
         const int64_t draw_start_us = esp_timer_get_time();

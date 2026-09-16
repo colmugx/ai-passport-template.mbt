@@ -57,17 +57,19 @@ const FAIRY_POSE_LEAD_US : Int64 = 100_000L
 
 ///|
 /// One C-paced frame tick: the app receives the monotonic device clock and
-/// the loop-wrapped playback position, and itself decides when logical 30 Hz
-/// simulation steps occur. The 100 ms fairy-pose lead is passed as the
-/// generic presentation-lead fact. Any physical press the frame task
-/// delivered to the App has already been applied here; afterwards the
-/// absolute desired output is mirrored to the music transport.
+/// the transport's playback Option (`Some(position)` — loop-boundary zero
+/// included — while the streaming task runs, `None` when it does not), and
+/// itself decides when logical 30 Hz simulation steps occur. The 100 ms
+/// fairy-pose lead is passed as the generic presentation-lead fact. Any
+/// physical press the frame task delivered to the App has already been
+/// applied here; afterwards the absolute desired output is mirrored to the
+/// music transport.
 #export_name("ai_passport_mbt_forest_update")
 pub fn forest_update() -> Unit {
   let scene = require_scene()
   scene.app.advance(
     device_now_us(),
-    playback_position_us=music_position_us(),
+    playback_position_us?=device_playback_position_us(),
     presentation_lead_us=FAIRY_POSE_LEAD_US,
   )
   sync_audio_output(scene)

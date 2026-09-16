@@ -6,9 +6,18 @@
 /// logical frame into the linear-memory framebuffer (marks it dirty).
 pub fn passport_frame(now_us : Int64) -> Unit {
   state.bridge.advance(now_us)
+  // SDK 0.0.2 has no playback-available import, so availability must be
+  // inferred from the raw position fact: before the browser AudioContext
+  // unlocks, the host reports 0, which maps to None (fallback beat clock).
+  // Once playback has begun, the web position is monotonic across loops and
+  // never sits at a loop-relative 0 boundary, so `raw > 0` stays exact for
+  // this host. Do not replicate this mapping on the device: its transport
+  // reports availability separately and its loop boundary IS position 0.
+  let raw = @hostabi.host_playback_pos_us()
+  let playback_position : Int64? = if raw > 0L { Some(raw) } else { None }
   state.app.advance(
     now_us,
-    playback_position_us=@hostabi.host_playback_pos_us(),
+    playback_position_us?=playback_position,
     presentation_lead_us=0L,
   )
   sync_audio_state(state)

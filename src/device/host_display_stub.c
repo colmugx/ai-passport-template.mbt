@@ -16,14 +16,28 @@ void ai_passport_display_end(void) { abort(); }
 
 int32_t ai_passport_battery_soc(void) { return -1; }
 
-// No audio hardware on hosts: the music position stays at the track start,
-// so the walk clock holds pose 0.
-int64_t ai_passport_music_position_us(void) { return 0; }
+// Host transport stand-ins: both clocks and the availability fact are
+// frozen at "no music, no time" so the host-side runtime tests stay
+// deterministic unless a test drives them through the setters below.
+static int32_t s_test_music_available;
+static int64_t s_test_music_position;
+static int64_t s_test_now_us;
 
-// Host builds have no esp_timer; the frozen zero keeps the host-side
-// runtime tests deterministic (no time ever elapses unless a test drives
-// the app clock itself).
-int64_t ai_passport_now_us(void) { return 0; }
+int32_t ai_passport_music_available(void) { return s_test_music_available; }
+
+int64_t ai_passport_music_position_us(void) { return s_test_music_position; }
+
+int64_t ai_passport_now_us(void) { return s_test_now_us; }
+
+void ai_passport_test_set_music_available(int32_t available) {
+    s_test_music_available = available;
+}
+
+void ai_passport_test_set_music_position(int64_t position_us) {
+    s_test_music_position = position_us;
+}
+
+void ai_passport_test_set_now_us(int64_t now_us) { s_test_now_us = now_us; }
 
 // Recording stand-in for the music transport's absolute output setter. The
 // firmware's music_stream owns the real one; host tests read what the

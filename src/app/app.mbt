@@ -65,12 +65,16 @@ pub fn App::input(self : App, button : @input.Button, pressed : Bool) -> Unit {
 /// this at any rate — the application alone decides when logical 30 Hz
 /// simulation steps occur (catch-up is bounded).
 ///
-/// `playback_position_us` is a host fact: the audible musical position. On
-/// hosts whose position is monotonic across loops (the web host), it is
-/// wrapped at the canonical PCM duration here, giving every host the same
-/// loop-relative application timeline. `None` (or a non-positive position)
-/// means playback is unavailable — locked, failed or absent — and the
-/// monotonic fallback beat clock keeps the animation moving at tempo.
+/// `playback_position_us` is a host fact: the audible musical position.
+/// AVAILABILITY is the Option itself: `Some(position)` is live PCM playback
+/// — including exactly `Some(0)` at the track start and at a device PCM
+/// loop boundary — while `None` means playback is unavailable (locked,
+/// failed or absent) and the monotonic fallback beat clock keeps the
+/// animation moving at tempo. A negative position, if a host ever emits
+/// one, is treated as unavailable for safety. On hosts whose live position
+/// is monotonic across loops (the web host), it is wrapped at the canonical
+/// PCM duration here, giving every host the same loop-relative application
+/// timeline.
 ///
 /// `presentation_lead_us` is a generic host calibration fact added to the
 /// loop-relative position before deriving the musical eighth: the device
@@ -102,7 +106,7 @@ pub fn App::advance(
   self.apply_input_edges()
   let eighths = self.musical_position(
     delta_us~,
-    playback_position_us.unwrap_or(0L),
+    playback_position_us,
     presentation_lead_us~,
   )
   let steps = self.stepper.steps_due(delta_us)
@@ -129,25 +133,29 @@ fn App::apply_input_edges(self : App) -> Unit {
 
 ///|
 /// Resolves the current musical position in whole eighth notes. A live
-/// playback position (positive, with a known canonical duration) is wrapped
-/// at the duration, advanced by the presentation lead and converted; without
-/// one, the monotonic fallback clock accumulates this frame's delta so the
-/// fairy never freezes while audio is locked or unavailable.
+/// playback position — `Some(position)` with a non-negative position and a
+/// known canonical duration; `Some(0)` included — is wrapped at the
+/// duration, advanced by the presentation lead and converted. `None` (or a
+/// negative position, which no healthy host emits) falls back to the
+/// monotonic clock accumulating this frame's delta, so the fairy never
+/// freezes while audio is locked or unavailable.
 fn App::musical_position(
   self : App,
   delta_us~ : Int64,
-  playback_position_us : Int64,
+  playback_position_us : Int64?,
   presentation_lead_us~ : Int64,
 ) -> Int {
   let duration = @generated.AUDIO_DURATION_US
-  if playback_position_us > 0L && duration > 0L {
-    musical_eighths(
-      loop_position_us(playback_position_us, duration) + presentation_lead_us,
-      @forest_walk.MUSIC_DOTTED_QUARTER_BPM,
-    )
-  } else {
-    self.beat.tick(delta_us)
-    self.beat.eighths(@forest_walk.MUSIC_DOTTED_QUARTER_BPM)
+  match playback_position_us {
+    Some(position) if position >= 0L && duration > 0L =>
+      musical_eighths(
+        loop_position_us(position, duration) + presentation_lead_us,
+        @forest_walk.MUSIC_DOTTED_QUARTER_BPM,
+      )
+    _ => {
+      self.beat.tick(delta_us)
+      self.beat.eighths(@forest_walk.MUSIC_DOTTED_QUARTER_BPM)
+    }
   }
 }
 
