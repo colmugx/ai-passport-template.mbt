@@ -14,14 +14,15 @@ const SUBPIXEL_UNITS_PER_PIXEL : Int = 16
 const SCROLL_SIXTEENTH_PIXELS_PER_FRAME : Int = 9
 
 ///|
-/// Poses per completed walk cycle. The six-frame sheet is spread evenly
-/// across one 4/4 bar: one pose lasts 8/6 = 4/3 eighth notes (350,877 us at
-/// 114 quarter BPM) and the cycle closes exactly on the bar line, with the
-/// pose-0 and pose-3 transitions landing on the two strong beats.
+/// Poses per completed walk cycle. The six-frame sheet spans one 4/4 bar of
+/// eight whole-eighth buckets. Integer mapping produces the exact sequence
+/// `0,0,1,2,3,3,4,5`; pose 0 and pose 3 each occupy two eighth buckets while
+/// the others occupy one. Across the full bar the average is 8/6 = 4/3
+/// eighths per pose, and the cycle closes exactly on the bar line.
 const WALK_CYCLE_POSES : Int = 6
 
 ///|
-/// Eighths per 4/4 bar. Six poses averaged across them: the pose index is
+/// Eighths per 4/4 bar. The pose index is
 /// floor(eighths * poses / eighths_per_bar) — integer-exactly
 /// floor(eighths * 3 / 4) — so pose 0 always lands on the downbeat.
 const EIGHTHS_PER_BAR : Int = 8
@@ -31,11 +32,11 @@ const EIGHTHS_PER_BAR : Int = 8
 ///
 /// The scene fields are recomputed into a new `State`. The fairy pose is the
 /// audible six-frame phase of the portable app contract: the runtime passes
-/// the musical position in eighth notes (at the application tempo — 114
-/// quarter BPM, i.e. 76 dotted-quarter BPM, one pose lasting 4/3 eighths),
-/// and the six-pose walk cycle spans exactly one 4/4 bar. Music playback
-/// itself lives entirely in the runtimes; no update touches any audio
-/// transport.
+/// the musical position in whole eighth-note buckets at the application
+/// tempo (114 quarter BPM, i.e. 76 dotted-quarter BPM), and the production
+/// mapping `floor(eighths * 3 / 4) % 6` yields `0,0,1,2,3,3,4,5` across one
+/// 4/4 bar. Music playback itself lives entirely in the runtimes; no update
+/// touches any audio transport.
 ///
 /// Every update advances the world by nine sixteenth-pixels; the pose comes
 /// only from `musical_eighths`, never from the simulation frame counter.
