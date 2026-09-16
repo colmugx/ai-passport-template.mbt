@@ -1,8 +1,9 @@
 ///|
 /// Converts a musical position in microseconds into the whole eighth-note
 /// index at `dotted_quarter_bpm` (one dotted quarter is three eighths).
-/// Int64 arithmetic keeps long sessions exact; one fairy pose lasts exactly
-/// one eighth note.
+/// Int64 arithmetic keeps long sessions exact; the six-pose fairy walk
+/// cycle spans the 4/4 bar of eight eighths, so one pose lasts 4/3 eighths
+/// (the scene maps eighths onto poses; this function stays pure eighths).
 pub fn musical_eighths(position_us : Int64, dotted_quarter_bpm : Int) -> Int {
   if dotted_quarter_bpm <= 0 {
     abort("dotted-quarter BPM must be positive")

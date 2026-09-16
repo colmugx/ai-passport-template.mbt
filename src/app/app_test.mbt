@@ -34,23 +34,25 @@ test "fixed-step cadence at 30 Hz" {
 }
 
 ///|
-test "scroll advances at 22.5 logical px/s" {
+test "scroll advances at 16.875 logical px/s" {
   let app = @app.App::new()
   let mut now = 0L
   // Establish the baseline: the first tick simulates no pre-boot time.
   app.advance(now)
-  // One second of simulation: 30 steps = 90 quarter-pixels = 22.5 px -> 22.
+  // One second of simulation: 30 steps = 270 sixteenth-pixels
+  // = 16.875 px -> 16 (three quarters of the old 22.5 px/s pace, matching
+  // the 4/4 walk cycle so a footstep still covers the same ground).
   for _ in 0..<30 {
     now += 33334L
     app.advance(now)
   }
-  inspect(app.scroll(), content="22")
-  // A second second: 60 steps = 180 quarter-pixels = 45 px exactly.
+  inspect(app.scroll(), content="16")
+  // A second second: 60 steps = 540 sixteenth-pixels = 33.75 px -> 33.
   for _ in 0..<30 {
     now += 33334L
     app.advance(now)
   }
-  inspect(app.scroll(), content="45")
+  inspect(app.scroll(), content="33")
 }
 
 ///|
@@ -62,8 +64,9 @@ test "BPM 76 eighth conversion" {
   inspect(@app.musical_eighths(263158L, 76), content="1")
   // One dotted quarter = three eighths.
   inspect(@app.musical_eighths(60000000L, 76), content="228")
-  // Six eighths = one 6/8 bar = one full fairy walk cycle.
-  inspect(@app.musical_eighths(263158L * 6L, 76), content="6")
+  // Eight eighths = one 4/4 bar = one full fairy walk cycle (the scene
+  // maps six poses onto those eight eighths).
+  inspect(@app.musical_eighths(263158L * 8L, 76), content="8")
 }
 
 ///|
@@ -88,7 +91,7 @@ test "playback position wraps at the canonical PCM duration" {
     playback_position_us=duration + 5_000_000L,
     presentation_lead_us=0L,
   )
-  inspect(app.walker_frame(), content="\{eighths_at(5_000_000L) % 6}")
+  inspect(app.walker_frame(), content="\{pose_at(5_000_000L)}")
 }
 
 ///|
@@ -96,6 +99,14 @@ test "playback position wraps at the canonical PCM duration" {
 /// under test (no presentation lead).
 fn eighths_at(position_us : Int64) -> Int {
   @app.musical_eighths(position_us, @forest_walk.MUSIC_DOTTED_QUARTER_BPM)
+}
+
+///|
+/// Fairy pose the app should render for a live loop-relative position under
+/// test: six poses spread across the eight-eighth 4/4 bar, so one pose
+/// lasts 4/3 eighths.
+fn pose_at(position_us : Int64) -> Int {
+  eighths_at(position_us) * 3 / 4 % 6
 }
 
 ///|
@@ -117,7 +128,7 @@ test "presentation lead is applied generically" {
     presentation_lead_us=0L,
   )
   inspect(base.walker_frame(), content="\{direct.walker_frame()}")
-  inspect(direct.walker_frame(), content="\{eighths_at(3_000_000L) % 6}")
+  inspect(direct.walker_frame(), content="\{pose_at(3_000_000L)}")
 }
 
 ///|
@@ -125,15 +136,16 @@ test "unavailable playback falls back to the monotonic clock" {
   let app = @app.App::new()
   // First tick establishes the baseline only.
   app.advance(0L)
-  // None (playback unavailable): eighth at 76 BPM is ~263158 us; after 1 s
-  // of fallback clock the pose is eighths(1s) % 6 = 3 % 6.
+  // None (playback unavailable): an eighth at 76 BPM is ~263158 us; after
+  // 1 s of fallback clock eighths(1s) = 3 -> pose 3 * 3 / 4 = 2.
   app.advance(1_000_000L, playback_position_us?=None)
-  inspect(app.walker_frame(), content="3")
+  inspect(app.walker_frame(), content="2")
   app.advance(2_000_000L, playback_position_us?=None)
-  inspect(app.walker_frame(), content="1")
+  // eighths(2s) = 7 -> pose 7 * 3 / 4 = 5.
+  inspect(app.walker_frame(), content="5")
   // Live playback then takes over from the fallback clock.
   app.advance(3_000_000L, playback_position_us=10_000_000L)
-  inspect(app.walker_frame(), content="\{eighths_at(10_000_000L) % 6}")
+  inspect(app.walker_frame(), content="\{pose_at(10_000_000L)}")
 }
 
 ///|
@@ -143,16 +155,16 @@ test "None means fallback: the beat clock advances from frame deltas" {
   // No host time banked on the baseline tick: eighth zero.
   inspect(app.walker_frame(), content="0")
   // Two and a half seconds of host time with None reports: the fallback
-  // clock accumulates deltas and reaches eighths(2_500_000) = 9 -> 9 % 6.
+  // clock accumulates deltas and reaches eighths(2.5 s) = 9 -> pose 6.
   app.advance(2_500_000L, playback_position_us?=None)
-  inspect(app.walker_frame(), content="\{eighths_at(2_500_000L) % 6}")
+  inspect(app.walker_frame(), content="\{pose_at(2_500_000L)}")
 }
 
 ///|
 test "Some(0) means live playback, not the fallback clock" {
   let app = @app.App::new()
   // A large presentation lead lifts the live zero position far past eighth
-  // zero (eighths(10 s) % 6 = 2), while the fallback path on these two
+  // zero (eighths(10 s) = 38 -> pose 4), while the fallback path on these two
   // ticks would still be pinned at eighth zero — the assertion cannot pass
   // by accident.
   app.advance(
@@ -165,7 +177,7 @@ test "Some(0) means live playback, not the fallback clock" {
     playback_position_us?=Some(0L),
     presentation_lead_us=10_000_000L,
   )
-  inspect(app.walker_frame(), content="\{eighths_at(10_000_000L) % 6}")
+  inspect(app.walker_frame(), content="\{pose_at(10_000_000L)}")
 }
 
 ///|
@@ -175,13 +187,13 @@ test "exact loop boundary stays on the live PCM timeline" {
   app.advance(0L)
   // Near the end of the loop the pose follows the live timeline.
   app.advance(33_334L, playback_position_us?=Some(duration - 1_000L))
-  inspect(app.walker_frame(), content="\{eighths_at(duration - 1_000L) % 6}")
+  inspect(app.walker_frame(), content="\{pose_at(duration - 1_000L)}")
   // The transport wraps: the very next live report is exactly 0, and it is
   // still live — pose derived from the PCM timeline, not the fallback.
   app.advance(66_668L, playback_position_us?=Some(0L))
   // Follow-up live positions keep riding the loop: eighth of 500 ms.
   app.advance(100_002L, playback_position_us?=Some(500_000L))
-  inspect(app.walker_frame(), content="\{eighths_at(500_000L) % 6}")
+  inspect(app.walker_frame(), content="\{pose_at(500_000L)}")
   // If either Some(0) had been treated as unavailable, the fallback clock
   // would only have ~66_668 us banked here — eighth 0, pose 0 — and both
   // assertions above would fail.
@@ -197,9 +209,10 @@ test "live zero positions never advance the fallback beat clock" {
   app.advance(2_000_000L, playback_position_us?=Some(0L))
   inspect(app.walker_frame(), content="0")
   // The moment reports stop, the fallback takes over from scratch: 1 s of
-  // delta reaches eighth 3, proving nothing was banked during playback.
+  // delta reaches eighth 3 -> pose 2, proving nothing was banked during
+  // playback.
   app.advance(3_000_000L, playback_position_us?=None)
-  inspect(app.walker_frame(), content="3")
+  inspect(app.walker_frame(), content="2")
 }
 
 ///|
@@ -209,9 +222,9 @@ test "negative playback positions fall back safely" {
   // No healthy host emits a negative position; if one ever arrives it is
   // treated as unavailable and the fallback clock keeps the fairy moving.
   app.advance(1_000_000L, playback_position_us?=Some(-5L))
-  inspect(app.walker_frame(), content="3")
+  inspect(app.walker_frame(), content="2")
   app.advance(2_000_000L, playback_position_us?=Some(-500_000_000L))
-  inspect(app.walker_frame(), content="1")
+  inspect(app.walker_frame(), content="5")
 }
 
 ///|
@@ -237,12 +250,12 @@ test "first tick musical semantics stay deterministic" {
   // The next step derives the pose from the audible position alone
   // (stateless), never from the host timestamp.
   live.advance(9_033_334L, playback_position_us=5_000_000L)
-  inspect(live.walker_frame(), content="\{eighths_at(5_000_000L) % 6}")
+  inspect(live.walker_frame(), content="\{pose_at(5_000_000L)}")
   // Without playback, the first tick banks no fallback time: the beat
   // clock starts at eighth zero regardless of the host clock's value.
   let fallback = @app.App::new()
   fallback.advance(9_000_000L)
   inspect(fallback.walker_frame(), content="0")
   fallback.advance(9_263_158L)
-  inspect(fallback.walker_frame(), content="1")
+  inspect(fallback.walker_frame(), content="0")
 }

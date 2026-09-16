@@ -41,11 +41,11 @@ test "fairy sheet keeps transparent pixels transparent in all six frames" {
 test "draw survives repeated layer wraps while walking on both canvases" {
   let mut s = State::new()
   // Continue beyond a full ping-pong tile period at the fixed scroll rate
-  // (0.75 pixels per update).
+  // (0.5625 pixels per update).
   for _ in 0..<500 {
     s = s.update(musical_eighths=0)
   }
-  assert_eq(s.scroll(), 375)
+  assert_eq(s.scroll(), 281)
   s.draw(canvas=@graphics.Canvas::logical(), battery_percent=Some(82))
   s.draw(
     canvas=@graphics.Canvas::new(width=64, height=80),

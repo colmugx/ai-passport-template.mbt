@@ -112,15 +112,15 @@ test "device adapter maps transport availability to the App playback Option" {
   forest_init()
   // Unavailable transport (startup failed): the adapter hands the App None,
   // so the fallback beat clock accumulates real host time — two seconds of
-  // frames reach eighth 7 (7 % 6 = 1). A wrongly forwarded Some(0) would
-  // pin the pose at 0.
+  // frames reach eighth 7 -> pose 7 * 3 / 4 = 5. A wrongly forwarded
+  // Some(0) would pin the pose at 0.
   test_set_music_available(0)
   test_set_music_position(0)
   test_set_now_us(0)
   forest_update()
   test_set_now_us(2_000_000L)
   forest_update()
-  assert_eq(require_scene().app.walker_frame(), 1)
+  assert_eq(require_scene().app.walker_frame(), 5)
   // Fresh scene, live transport at the loop boundary: position exactly 0 is
   // LIVE. The same two seconds of host time must leave the pose at eighth 0
   // — the fallback clock stays untouched because the App received Some(0).
@@ -134,12 +134,12 @@ test "device adapter maps transport availability to the App playback Option" {
   forest_update()
   assert_eq(require_scene().app.walker_frame(), 0)
   // A nonzero live position rides the PCM timeline through the same Option:
-  // eighth 2 at 76 BPM is 526_316..789_473 us. The clock also advances one
+  // 600 ms = eighth 2 -> pose 2 * 3 / 4 = 1. The clock also advances one
   // frame so a simulation step refreshes the rendered pose.
   test_set_music_position(600_000L)
   test_set_now_us(2_033_334L)
   forest_update()
-  assert_eq(require_scene().app.walker_frame(), 2)
+  assert_eq(require_scene().app.walker_frame(), 1)
   // Restore the shared stub state for other tests.
   test_set_music_available(0)
   test_set_music_position(0)

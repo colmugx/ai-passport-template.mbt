@@ -1,34 +1,52 @@
 ///|
-/// Sub-pixel resolution of the scroll accumulator: four quarter-pixels per
-/// logical pixel.
-const SUBPIXEL_UNITS_PER_PIXEL : Int = 4
+/// Sub-pixel resolution of the scroll accumulator: sixteen units per logical
+/// pixel. Fine enough to express the 16.875 px/s walking pace exactly (9
+/// units per 30 Hz frame).
+const SUBPIXEL_UNITS_PER_PIXEL : Int = 16
 
 ///|
-/// Fixed horizontal movement of three quarter-pixels per simulation frame:
-/// 0.75 logical pixels per 30 Hz update, or 22.5 pixels per second — 25%
-/// slower than the original one-pixel-per-update pace. The accumulator keeps
-/// the average exact, so rendered whole-pixel offsets never drift.
-const SCROLL_QUARTER_PIXELS_PER_FRAME : Int = 3
+/// Fixed horizontal movement of nine sixteenth-pixels per simulation frame:
+/// 0.5625 logical pixels per 30 Hz update, or 16.875 pixels per second —
+/// three quarters of the original 22.5 px/s pace, matching the 4/4 walk
+/// cycle (six poses per bar) so the fairy covers the same ground per
+/// footstep as before. The accumulator keeps the average exact, so rendered
+/// whole-pixel offsets never drift.
+const SCROLL_SIXTEENTH_PIXELS_PER_FRAME : Int = 9
+
+///|
+/// Poses per completed walk cycle. The six-frame sheet is spread evenly
+/// across one 4/4 bar: one pose lasts 8/6 = 4/3 eighth notes (350,877 us at
+/// 114 quarter BPM) and the cycle closes exactly on the bar line, with the
+/// pose-0 and pose-3 transitions landing on the two strong beats.
+const WALK_CYCLE_POSES : Int = 6
+
+///|
+/// Eighths per 4/4 bar. Six poses averaged across them: the pose index is
+/// floor(eighths * poses / eighths_per_bar) — integer-exactly
+/// floor(eighths * 3 / 4) — so pose 0 always lands on the downbeat.
+const EIGHTHS_PER_BAR : Int = 8
 
 ///|
 /// Pure state transition for one frame.
 ///
 /// The scene fields are recomputed into a new `State`. The fairy pose is the
 /// audible six-frame phase of the portable app contract: the runtime passes
-/// the musical position in eighth notes (at the application tempo, one
-/// dotted-quarter beat is three eighths), and one pose lasts exactly one
-/// eighth — one full six-pose walk cycle per 6/8 bar. Music playback itself
-/// lives entirely in the runtimes; no update touches any audio transport.
+/// the musical position in eighth notes (at the application tempo — 114
+/// quarter BPM, i.e. 76 dotted-quarter BPM, one pose lasting 4/3 eighths),
+/// and the six-pose walk cycle spans exactly one 4/4 bar. Music playback
+/// itself lives entirely in the runtimes; no update touches any audio
+/// transport.
 ///
-/// Every update advances the world by three quarter-pixels; the pose comes
+/// Every update advances the world by nine sixteenth-pixels; the pose comes
 /// only from `musical_eighths`, never from the simulation frame counter.
 pub fn State::update(self : State, musical_eighths~ : Int) -> State {
   let frame = self.frame + 1
+  let pose = musical_eighths * WALK_CYCLE_POSES / EIGHTHS_PER_BAR
   // Layer data is shared between snapshots.
   {
     frame,
-    scroll_quarter: self.scroll_quarter + SCROLL_QUARTER_PIXELS_PER_FRAME,
-    walker_frame: musical_eighths % 6,
+    scroll_sixteenth: self.scroll_sixteenth + SCROLL_SIXTEENTH_PIXELS_PER_FRAME,
+    walker_frame: pose % WALK_CYCLE_POSES,
     walker_sheet: self.walker_sheet,
     far_layer: self.far_layer,
     world_layer: self.world_layer,

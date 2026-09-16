@@ -110,7 +110,7 @@ test "renderer samples the mirrored tile past the layer width" {
 fn state_at_scroll(scroll~ : Int, walker_frame~ : Int) -> State {
   {
     frame: 1,
-    scroll_quarter: scroll * SUBPIXEL_UNITS_PER_PIXEL,
+    scroll_sixteenth: scroll * SUBPIXEL_UNITS_PER_PIXEL,
     walker_frame,
     walker_sheet: build_fairy_walk_right_sheet(),
     far_layer: build_forest_far_layer(),
@@ -231,7 +231,7 @@ test "ambient frame loop advances every parallax offset at fixed ratios" {
   let mut state = State::new()
   for frame in 1..<81 {
     state = state.update(musical_eighths=0)
-    let scroll = frame * 3 / 4
+    let scroll = frame * 9 / 16
     assert_eq(state.scroll(), scroll)
     assert_eq(far_scroll_offset(state.scroll()), scroll / 8)
     assert_eq(foreground_scroll_offset(state.scroll()), scroll * 3 / 2)
