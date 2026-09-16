@@ -97,6 +97,9 @@ test "draw presents a changing logical frame" {
   let app = @app.App::new()
   app.draw(battery_percent=Some(82))
   let first = frame_digest(app.frame_view())
+  // The first tick establishes the baseline; one second of simulation
+  // after it changes the rendered scene.
+  app.advance(0L)
   app.advance(1_000_000L)
   app.draw(battery_percent=Some(82))
   let second = frame_digest(app.frame_view())

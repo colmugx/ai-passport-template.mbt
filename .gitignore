@@ -11,3 +11,6 @@ __pycache__/
 /device/esp32c3/sdkconfig
 /device/esp32c3/sdkconfig.old
 /device/esp32c3/managed_components/
+
+# Generated project workspace (canonical PCM, web bundle)
+/.passport/

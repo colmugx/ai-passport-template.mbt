@@ -4,9 +4,11 @@
 test "fixed-step cadence at 30 Hz" {
   let app = @app.App::new()
   inspect(app.frame(), content="0")
+  // The first tick only establishes the host time baseline.
+  let mut now = 0L
+  app.advance(now)
   // A 30 Hz host pacing whole 1/30 s ticks: one step per tick (33334 us
   // ticks bank a 20 us remainder that never buys an extra step).
-  let mut now = 0L
   for _ in 0..<30 {
     now += 33334L
     app.advance(now)
@@ -35,6 +37,8 @@ test "fixed-step cadence at 30 Hz" {
 test "scroll advances at 22.5 logical px/s" {
   let app = @app.App::new()
   let mut now = 0L
+  // Establish the baseline: the first tick simulates no pre-boot time.
+  app.advance(now)
   // One second of simulation: 30 steps = 90 quarter-pixels = 22.5 px -> 22.
   for _ in 0..<30 {
     now += 33334L
@@ -78,8 +82,9 @@ test "playback position wraps at the canonical PCM duration" {
   inspect(@app.loop_position_us(5_000_000L, 0L), content="0")
   // At the App level, positions one loop apart derive the same pose.
   let app = @app.App::new()
+  app.advance(0L)
   app.advance(
-    1_000_000L,
+    33_334L,
     playback_position_us=duration + 5_000_000L,
     presentation_lead_us=0L,
   )
@@ -98,14 +103,16 @@ test "presentation lead is applied generically" {
   // Lead applies to the loop-relative position, host-agnostically: a lead
   // of L on position P derives the same eighth as position P + L.
   let base = @app.App::new()
+  base.advance(0L)
   base.advance(
-    1_000_000L,
+    33_334L,
     playback_position_us=1_000_000L,
     presentation_lead_us=2_000_000L,
   )
   let direct = @app.App::new()
+  direct.advance(0L)
   direct.advance(
-    1_000_000L,
+    33_334L,
     playback_position_us=3_000_000L,
     presentation_lead_us=0L,
   )
@@ -116,6 +123,8 @@ test "presentation lead is applied generically" {
 ///|
 test "unavailable playback falls back to the monotonic clock" {
   let app = @app.App::new()
+  // First tick establishes the baseline only.
+  app.advance(0L)
   // Eighth at 76 BPM is ~263158 us; after 1 s of fallback clock the pose
   // is eighths(1s) % 6 = 3 % 6.
   app.advance(1_000_000L)
@@ -125,9 +134,43 @@ test "unavailable playback falls back to the monotonic clock" {
   // A zero playback position (audio locked, host reports 0) also falls
   // back instead of freezing the fairy.
   let locked = @app.App::new()
+  locked.advance(0L)
   locked.advance(1_000_000L, playback_position_us=0L)
   inspect(locked.walker_frame(), content="3")
   // Live playback then takes over from the fallback clock.
   app.advance(3_000_000L, playback_position_us=10_000_000L)
   inspect(app.walker_frame(), content="\{eighths_at(10_000_000L) % 6}")
+}
+
+///|
+test "first advance establishes the time baseline" {
+  let app = @app.App::new()
+  // Host clocks already run before the app boots (browser
+  // performance.now(), esp_timer_get_time() after hardware init): the
+  // first tick must latch the baseline and simulate none of that time.
+  app.advance(10_000_000L)
+  inspect(app.frame(), content="0")
+  // One 30 Hz period later: exactly one simulation step.
+  app.advance(10_033_334L)
+  inspect(app.frame(), content="1")
+}
+
+///|
+test "first tick musical semantics stay deterministic" {
+  // The first tick establishes the baseline and runs no steps, so the
+  // state holds its initial pose regardless of the host clock's value.
+  let live = @app.App::new()
+  live.advance(9_000_000L, playback_position_us=5_000_000L)
+  inspect(live.walker_frame(), content="0")
+  // The next step derives the pose from the audible position alone
+  // (stateless), never from the host timestamp.
+  live.advance(9_033_334L, playback_position_us=5_000_000L)
+  inspect(live.walker_frame(), content="\{eighths_at(5_000_000L) % 6}")
+  // Without playback, the first tick banks no fallback time: the beat
+  // clock starts at eighth zero regardless of the host clock's value.
+  let fallback = @app.App::new()
+  fallback.advance(9_000_000L)
+  inspect(fallback.walker_frame(), content="0")
+  fallback.advance(9_263_158L)
+  inspect(fallback.walker_frame(), content="1")
 }

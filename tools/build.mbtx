@@ -13,8 +13,10 @@
 //
 // The served host configuration is PCM asset mode:
 //   pcmAssetUrl = "./assets/forest_walk.pcm", pcmLoop = true
-// expressed through the SDK index.html URL parameters (see the printed
-// URL). Authored MP3/WAV are never served.
+// passed programmatically by the generated app.html entry page, which calls
+// the SDK's public `createHost` directly (the temporary SDK 0.0.2 bootstrap
+// workaround — see write_entry_page below). Authored MP3/WAV are never
+// served.
 
 import {
   "moonbitlang/async",
@@ -118,17 +120,18 @@ async fn copy_file(from : String, to : String) -> Unit {
 }
 
 ///|
-/// Writes the configured bundle entry page `.passport/web/app.html`.
+/// Writes the temporary bundle entry page `.passport/web/app.html`.
 ///
-/// The SDK's own `index.html` auto-boot is broken in published 0.0.2
-/// (`autoBootFromDom` references `params`, which only exists inside
-/// `createHost`, so it always throws). This page does not duplicate any
-/// host runtime: it calls the SDK's public `createHost` API with exactly
-/// the project host configuration —
-///   pcmAssetUrl = "./assets/forest_walk.pcm", pcmLoop = true
-/// — and mirrors the documented auto-boot wiring (status line, start loop,
-/// resume audio on first gesture). Drop this page and point at the SDK
-/// index.html once a published SDK fixes its auto-boot.
+/// TEMPORARY SDK 0.0.2 BOOTSTRAP WORKAROUND: the published 0.0.2
+/// `passport-host.js` auto-boot is broken (`autoBootFromDom` references
+/// `params`, which only exists inside `createHost`, so it always throws).
+/// This page is pure host bootstrap with ZERO application semantics: it
+/// imports the SDK's public `createHost`, passes exactly the project host
+/// configuration —
+///   canvas, pcmAssetUrl = "./assets/forest_walk.pcm", pcmLoop = true
+/// — starts the host, and resumes audio on the first user gesture. A
+/// published SDK 0.0.3 removes the need for this page; then point the
+/// bundle at the SDK index.html and drop this generator.
 async fn write_entry_page() -> Unit {
   @fs.write_file("\{BUNDLE_DIR}/app.html", ENTRY_PAGE)
 }

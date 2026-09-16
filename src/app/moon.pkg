@@ -4,10 +4,3 @@ import {
   "colmugx/ai-passport-template/forest_walk",
   "colmugx/ai-passport-template/forest_walk/generated",
 }
-
-import {
-  "colmugx/ai-passport/graphics",
-  "colmugx/ai-passport/input",
-  "colmugx/ai-passport-template/forest_walk",
-  "colmugx/ai-passport-template/forest_walk/generated",
-} for "test"

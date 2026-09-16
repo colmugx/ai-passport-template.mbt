@@ -14,11 +14,14 @@ if [[ "$idf_version" != "ESP-IDF v5.5.3" ]]; then
 fi
 export MOON_HOME="${MOON_HOME:-$HOME/.moon}"
 export IDF_TARGET=esp32c3
+# ONE canonical normalization for a device build: the unified assets command
+# regenerates graphics, normalizes the authored WAV/MP3 into
+# .passport/assets/forest_walk.pcm (embedded by the music_stream component at
+# configure time) and rewrites src/forest_walk/generated/audio_meta.mbt. It
+# MUST run before the MoonBit C capture, or a changed authored track could
+# pair old duration metadata with new PCM bytes in one firmware.
+(cd "$repo_root" && moon run tools/passport.mbtx assets)
 "$device_root/generate_moonbit_c.sh"
-# Normalize the authored WAV/MP3 once into the canonical project PCM
-# (.passport/assets/forest_walk.pcm); the ESP-IDF music_stream component
-# embeds that exact file, so it must exist before configure time.
-python3 "$repo_root/tools/compile_audio.py"
 cd "$device_root"
 # Materialize the effective sdkconfig (created from sdkconfig.defaults when
 # missing) before verifying the baselines; an sdkconfig generated before a

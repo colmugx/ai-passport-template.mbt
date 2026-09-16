@@ -20,12 +20,13 @@ pub struct App {
   priv beat : BeatClock
   priv controls : Controls
   priv input : @input.InputState
-  priv mut last_now_us : Int64
+  priv mut last_now_us : Int64?
 }
 
 ///|
 /// Creates the application with a logical 120x160 canvas and a fresh Forest
-/// Walk scene, at the startup volume, audible, clock at zero.
+/// Walk scene, at the startup volume, audible, clock at zero and no time
+/// baseline yet (the first `advance` latches it).
 pub fn App::new() -> App {
   {
     canvas: @graphics.Canvas::logical(),
@@ -34,7 +35,7 @@ pub fn App::new() -> App {
     beat: BeatClock::new(),
     controls: Controls::new(),
     input: @input.InputState::new(),
-    last_now_us: 0L,
+    last_now_us: None,
   }
 }
 
@@ -54,8 +55,13 @@ pub fn App::input(self : App, button : @input.Button, pressed : Bool) -> Unit {
 ///|
 /// One host frame tick; returns nothing, hosts present after it.
 ///
-/// `now_us` is the host's monotonic frame timestamp in microseconds; equal
-/// or earlier timestamps are clamped so time never rewinds. Hosts may call
+/// `now_us` is the host's monotonic frame timestamp in microseconds. The
+/// FIRST call establishes the time baseline and simulates nothing
+/// (`delta_us = 0`): host clocks (browser `performance.now()`,
+/// `esp_timer_get_time()`) already run before the application boots, and
+/// time that elapsed before `App` execution began must not be simulated.
+/// Afterwards each call measures `max(now_us - previous_now_us, 0)`, so
+/// equal or earlier timestamps never rewind the clock. Hosts may call
 /// this at any rate — the application alone decides when logical 30 Hz
 /// simulation steps occur (catch-up is bounded).
 ///
@@ -78,12 +84,20 @@ pub fn App::advance(
   playback_position_us? : Int64,
   presentation_lead_us? : Int64 = 0L,
 ) -> Unit {
-  let delta_us = if now_us > self.last_now_us {
-    let delta = now_us - self.last_now_us
-    self.last_now_us = now_us
-    delta
-  } else {
-    0L
+  let delta_us = match self.last_now_us {
+    Some(previous) => {
+      self.last_now_us = Some(now_us)
+      if now_us > previous {
+        now_us - previous
+      } else {
+        0L
+      }
+    }
+    // First tick: only latch the host time baseline.
+    None => {
+      self.last_now_us = Some(now_us)
+      0L
+    }
   }
   self.apply_input_edges()
   let eighths = self.musical_position(

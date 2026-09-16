@@ -24,10 +24,21 @@ jobs:
           grep -q 'colmugx/ai-passport@0.0.2' moon.mod
           moon update
 
-      - name: Deterministic assets build (graphics + canonical audio)
+      # The ONE web-build entry point: `build web` runs tools/assets.mbtx
+      # internally (graphics + the single canonical ffmpeg normalization),
+      # compiles wasm and assembles .passport/web/. Never call
+      # `passport assets` separately in the same workflow: the Project
+      # Contract allows exactly one audio normalization per build.
+      - name: Build the web bundle (assets normalize exactly once)
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-          moon run tools/passport.mbtx assets
+          moon run tools/passport.mbtx build web
+          test -f .passport/web/app.wasm
+          test -f .passport/web/passport-host.js
+          test -f .passport/web/pcm-worklet.js
+          test -f .passport/web/index.html
+          test -f .passport/web/app.html
+          test -f .passport/web/assets/forest_walk.pcm
           git diff --exit-code
 
       - name: Test Python asset and audio tooling
@@ -44,6 +55,8 @@ jobs:
           moon check --target js --output-json
           moon test --target js --output-json
 
+      # Rebuilding MoonBit here is fine: these commands never rerun the
+      # ffmpeg normalization (that lives only inside tools/assets.mbtx).
       - name: Check and test wasm (runtime_wasm, ABI v0)
         run: |
           moon check --target wasm --output-json
@@ -56,7 +69,7 @@ jobs:
           node -e '
             const fs = require("fs");
             const mod = new WebAssembly.Module(fs.readFileSync(
-              "_build/wasm/release/build/runtime_wasm/runtime_wasm.wasm"));
+              ".passport/web/app.wasm"));
             const names = WebAssembly.Module.imports(mod).map((i) => i.name);
             if (names.includes("host_pcm_write")) {
               throw new Error("app.wasm imports passport.host_pcm_write (forbidden in PCM asset mode)");
@@ -71,16 +84,6 @@ jobs:
             }
             console.log("wasm ABI surface ok; imports: " + names.join(", "));
           '
-
-      - name: Assemble the new web bundle (SDK host materialized from the published package)
-        run: |
-          moon run tools/passport.mbtx build web
-          test -f .passport/web/app.wasm
-          test -f .passport/web/passport-host.js
-          test -f .passport/web/pcm-worklet.js
-          test -f .passport/web/index.html
-          test -f .passport/web/app.html
-          test -f .passport/web/assets/forest_walk.pcm
 
       - name: PCM artifact identity (web == device input == canonical)
         run: |
