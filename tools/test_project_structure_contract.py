@@ -66,7 +66,7 @@ class ProjectStructureContractTests(unittest.TestCase):
             self.assertFalse(
                 (REPO_ROOT / gone).exists(),
                 f"{gone} must not exist: Host implementation is SDK-owned "
-                "(hosts live in the SDK's hosts/folotoy-ai-passport)",
+                "(hosts live in the SDK's hosts/folotoy/ai-passport)",
             )
 
     def test_bsp_submodule_is_the_project_provided_dependency(self):

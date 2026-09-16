@@ -18,7 +18,7 @@ Browser execution is the shared MoonBit App compiled to `app.wasm` and run by th
 
 ## ESP32-C3 Forest Walk firmware
 
-The device backend (the ESP-IDF 5.5.3 project, the vendored FoloToy BSP, and all C bridges: display DMA, buttons, battery, music, clock) lives in the SDK repository under `hosts/folotoy-ai-passport/` and is not part of this template. The template's `src/runtime_native` is thin glue: it builds the shared `@app.App` and exports the eight generic ABI symbols the SDK's C `app_main` calls (`ai_passport_mbt_{probe,app_init,app_update,app_draw,app_present,input_press,audio_volume,audio_muted}`); it owns no C code, no FFI externs, and no bridge logic. The device fairy pose clock leads the reported playback position by a hardware-measured 100 ms (`FAIRY_POSE_LEAD_US`), the app-owned host calibration fact that keeps displayed steps on the audible beat.
+The device backend (the ESP-IDF 5.5.3 glue and all C bridges: display DMA, buttons, battery, music, clock) lives in the SDK repository under `hosts/folotoy/ai-passport/` and is not part of this template; the FoloToy BSP itself is this template's pinned `external/folotoy-ai-passport` submodule, consumed in place by the SDK build. The template's `src/runtime_native` is thin glue: it builds the shared `@app.App` and exports the eight generic ABI symbols the SDK's C `app_main` calls (`ai_passport_mbt_{probe,app_init,app_update,app_draw,app_present,input_press,audio_volume,audio_muted}`); it owns no C code, no FFI externs, and no bridge logic. The device fairy pose clock leads the reported playback position by a hardware-measured 100 ms (`FAIRY_POSE_LEAD_US`), the app-owned host calibration fact that keeps displayed steps on the audible beat.
 
 Toolchain preconditions (the SDK `passport doctor --host folotoy-ai-passport` verifies all of them): ESP-IDF v5.5.3 with `idf.py` on PATH (`source $IDF_PATH/export.sh`), the MoonBit toolchain `moon 0.1.20260915`, and `$MOON_HOME` pointing at the MoonBit installation whose runtime hash the SDK host manifest pins.
 
@@ -26,11 +26,11 @@ Toolchain preconditions (the SDK `passport doctor --host folotoy-ai-passport` ve
 moon run tools/passport.mbtx build device    # assets, capture, ESP-IDF build; never flashes
 ```
 
-The dispatcher delegates to the SDK `passport` CLI: it normalizes assets exactly once, captures MoonBit-generated C from the thin entry, materializes the host project into the ignored `.passport/hosts/folotoy-ai-passport/` workspace (including `passport_music.pcm`, a byte-for-byte copy of the contract's `pcmLoop` asset), connects the pinned FoloToy BSP (`external/folotoy-ai-passport`, the template's submodule, declared via `hostDependencies`; the SDK never carries or downloads third-party hardware code beyond that pinned revision), and runs `idf.py reconfigure` followed by `idf.py build`. With a board connected, flash and monitor from the materialized workspace:
+The dispatcher delegates to the SDK `passport` CLI: it normalizes assets exactly once, captures MoonBit-generated C from the thin entry, materializes the host project into the ignored `.passport/folotoy-ai-passport/` workspace (including `passport_music.pcm`, a byte-for-byte copy of the contract's `pcmLoop` asset), connects the pinned FoloToy BSP (`external/folotoy-ai-passport`, the template's submodule, declared via `hostDependencies`; the SDK never carries or downloads third-party hardware code beyond that pinned revision), and runs `idf.py reconfigure` followed by `idf.py build`. With a board connected, flash and monitor from the materialized workspace:
 
 ```sh
-.passport/hosts/folotoy-ai-passport/flash.sh -p PORT
-.passport/hosts/folotoy-ai-passport/monitor.sh -p PORT
+.passport/folotoy-ai-passport/flash.sh -p PORT
+.passport/folotoy-ai-passport/monitor.sh -p PORT
 ```
 
 ## Web development and build

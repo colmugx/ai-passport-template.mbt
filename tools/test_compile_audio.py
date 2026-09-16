@@ -133,7 +133,7 @@ class CompileAudioTests(unittest.TestCase):
         # The PCM is embedded in the factory app image, so the tool's budget
         # must be smaller than the partition the SDK's device Host actually
         # grants, with at least 1 MiB still reserved for the firmware itself.
-        table = sdk_root() / "hosts" / "folotoy-ai-passport" / "partitions.csv"
+        table = sdk_root() / "hosts" / "folotoy" / "ai-passport" / "partitions.csv"
         if not table.is_file():
             self.skipTest(
                 f"SDK device Host partitions.csv not found: {table} "
