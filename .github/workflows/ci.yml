@@ -4,32 +4,13 @@ on:
   push:
   pull_request:
 
-env:
-  # SDK checkout holding the passport CLI + the dev-overlay source
-  # (tools/sync-dev-sdk.sh, tools/passport.mbtx and the tests resolve it
-  # through $AI_PASSPORT_SDK).
-  AI_PASSPORT_SDK: ${{ github.workspace }}/ai-passport.mbt
-
 jobs:
   moonbit:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: template
     steps:
       - uses: actions/checkout@v4
         with:
-          path: template
           submodules: recursive
-
-      # Template main tracks SDK main until the next SDK release publishes
-      # the device surface the template's thin native entry compiles against.
-      - name: Check out the SDK toolchain (colmugx/ai-passport.mbt main)
-        uses: actions/checkout@v4
-        with:
-          repository: colmugx/ai-passport.mbt
-          ref: main
-          path: ai-passport.mbt
 
       - name: Install MoonBit
         run: |
@@ -37,76 +18,46 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
-      - name: Resolve SDK CLI dependencies (fresh checkout has none)
-        working-directory: ai-passport.mbt
-        run: moon update
-
-      - name: Resolve dependencies (published pins, then dev overlay)
+      # Interim gate (pre SDK release): the device entry, the SDK-CLI build
+      # flow, and the real-browser suites need the unreleased SDK surface;
+      # that cross-repo integration lives in the ai-passport.mbt CI, which
+      # checks this public template out as a fixture. Until the next
+      # ai-passport release publishes the device surface, this pipeline
+      # exercises only the published dependency — no private SDK checkout,
+      # no faked green. When the release ships: bump the pin below, restore
+      # the full-module checks and the passport-CLI build steps.
+      - name: Resolve the published dependencies
         run: |
           test ! -e moon.work
           grep -q 'colmugx/ai-passport@0.0.3' moon.mod
-          ! grep -q 'colmugx/ai-passport@0.0.2' moon.mod
           moon update
-          # The overlay must land after moon update: moon materializes the
-          # published package over it, the sync then replaces that content
-          # with the SDK checkout (stamped as the same version).
-          ./tools/sync-dev-sdk.sh "$AI_PASSPORT_SDK"
+
+      - name: Install ffmpeg for the asset tooling
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Asset normalization is deterministic
+        run: |
+          moon run tools/assets.mbtx
           git diff --exit-code
 
-      # The ONE web-build entry point: `build web` runs tools/assets.mbtx
-      # internally (graphics + the single canonical ffmpeg normalization),
-      # then the SDK passport CLI assembles .passport/web/. Never call
-      # `passport assets` separately in the same workflow: the Project
-      # Contract allows exactly one audio normalization per build.
-      - name: Build the web bundle (assets normalize exactly once)
+      - name: Published-surface checks and tests
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-          moon run tools/passport.mbtx build web
-          test -f .passport/web/app.wasm
-          test -f .passport/web/passport-host.js
-          test -f .passport/web/pcm-worklet.js
-          test -f .passport/web/index.html
-          test -f .passport/web/assets/forest_walk.pcm
-          # The SDK index.html is the ONLY web entry; the template must
-          # never generate its own browser bootstrap page.
-          test ! -e .passport/web/app.html
-          git diff --exit-code
+          for target in native js wasm; do
+            moon check --target "$target" --output-json src/app src/forest_walk src/runtime_wasm
+            moon test --target "$target" --output-json src/app src/forest_walk
+          done
 
-      - name: Test Python asset and audio tooling
+      - name: Wasm entry build and ABI v0 surface
         run: |
-          python3 -m unittest discover -s tools -p "test_*.py"
-
-      - name: Check and test native
-        run: |
-          moon check --target native --output-json
-          moon test --target native --output-json
-
-      # Portability check for the shared MoonBit packages only: the
-      # supported browser runtime is wasm, and the JS target builds no
-      # browser preview artifact.
-      - name: Check and test JavaScript (shared-package portability)
-        run: |
-          moon check --target js --output-json
-          moon test --target js --output-json
-
-      # Rebuilding MoonBit here is fine: these commands never rerun the
-      # ffmpeg normalization (that lives only inside tools/assets.mbtx).
-      - name: Check and test wasm (runtime_wasm, ABI v0)
-        run: |
-          moon check --target wasm --output-json
-          moon test --target wasm --output-json
-          moon build --target wasm --release --output-json
+          moon build --target wasm --release src/runtime_wasm
           test -f _build/wasm/release/build/runtime_wasm/runtime_wasm.wasm
-
-      - name: Assert wasm import surface (host_pcm_write must be absent)
-        run: |
           node -e '
             const fs = require("fs");
             const mod = new WebAssembly.Module(fs.readFileSync(
-              ".passport/web/app.wasm"));
+              "_build/wasm/release/build/runtime_wasm/runtime_wasm.wasm"));
             const names = WebAssembly.Module.imports(mod).map((i) => i.name);
             if (names.includes("host_pcm_write")) {
-              throw new Error("app.wasm imports passport.host_pcm_write (forbidden in PCM asset mode)");
+              throw new Error("runtime_wasm imports passport.host_pcm_write (forbidden in PCM asset mode)");
             }
             for (const n of ["host_battery_percent", "host_set_volume", "host_set_muted", "host_playback_pos_us"]) {
               if (!names.includes(n)) throw new Error("missing required import " + n);
@@ -119,17 +70,10 @@ jobs:
             console.log("wasm ABI surface ok; imports: " + names.join(", "));
           '
 
-      - name: PCM artifact identity (web == device input == canonical)
-        run: |
-          python3 tools/verify_pcm_identity.py
+      - name: Test Python asset and audio tooling
+        run: python3 -m unittest discover -s tools -p "test_*.py"
 
-      - name: Playwright real-browser Forest Walk integration
+      - name: Formatting
         run: |
-          npx -y playwright@1.63.0 install chromium --with-deps
-          node tools/web-integration/run.mjs
-
-      - name: Check generated API and formatting
-        run: |
-          moon info
           moon fmt
           git diff --exit-code

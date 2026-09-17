@@ -108,9 +108,7 @@ pub fn app_present() -> Unit {
 /// shared `@app.App`, exactly as on the Wasm/Web path.
 #export_name("ai_passport_mbt_input_press")
 pub fn input_press(code : Int) -> Unit {
-  guard @hostabi.device_button(code) is Some(button) else {
-    return
-  }
+  guard @hostabi.device_button(code) is Some(button) else { return }
   let scene = require_scene()
   scene.app.input(button, true)
   scene.app.input(button, false)

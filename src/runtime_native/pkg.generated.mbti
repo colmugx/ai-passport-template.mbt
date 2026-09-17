@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/ai-passport-template/runtime_native"
+
+// Values
+pub fn app_draw() -> Unit
+
+pub fn app_init() -> Unit
+
+pub fn app_present() -> Unit
+
+pub fn app_update() -> Unit
+
+pub fn audio_muted() -> Int
+
+pub fn audio_volume() -> Int
+
+pub fn input_press(Int) -> Unit
+
+pub fn probe() -> Int
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
