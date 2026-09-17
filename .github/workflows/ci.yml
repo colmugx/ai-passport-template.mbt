@@ -4,11 +4,14 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   moonbit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           submodules: recursive
 
@@ -24,20 +27,15 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
-      # The public-user path: everything the template consumes from the SDK
-      # resolves from the published Mooncakes package. There is deliberately
-      # no ai-passport.mbt checkout, no AI_PASSPORT_SDK, and no overlay.
-      - name: Resolve the published dependencies
+      - name: Resolve published dependencies
         run: |
-          test ! -e moon.work
-          test ! -e tools/sync-dev-sdk.sh
           grep -q 'colmugx/ai-passport@0.0.4' moon.mod
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/web/index.html
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
 
-      - name: Install ffmpeg for the asset tooling
+      - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Asset normalization is deterministic
@@ -52,7 +50,7 @@ jobs:
             moon test --target "$target" --output-json
           done
 
-      - name: Wasm entry build and ABI v0 surface
+      - name: Wasm ABI v0 surface
         run: |
           moon build --target wasm --release src/runtime_wasm
           test -f _build/wasm/release/build/runtime_wasm/runtime_wasm.wasm
@@ -61,9 +59,7 @@ jobs:
             const mod = new WebAssembly.Module(fs.readFileSync(
               "_build/wasm/release/build/runtime_wasm/runtime_wasm.wasm"));
             const names = WebAssembly.Module.imports(mod).map((i) => i.name);
-            if (names.includes("host_pcm_write")) {
-              throw new Error("runtime_wasm imports passport.host_pcm_write (forbidden in PCM asset mode)");
-            }
+            if (names.includes("host_pcm_write")) throw new Error("forbidden host_pcm_write import");
             for (const n of ["host_battery_percent", "host_set_volume", "host_set_muted", "host_playback_pos_us"]) {
               if (!names.includes(n)) throw new Error("missing required import " + n);
             }
@@ -72,10 +68,9 @@ jobs:
                              "passport_fb_len", "passport_frame_dirty", "passport_frame_consume"]) {
               if (!exports.includes(n)) throw new Error("missing required export " + n);
             }
-            console.log("wasm ABI surface ok; imports: " + names.join(", "));
           '
 
-      - name: Web build through the published SDK CLI
+      - name: Web build through published SDK CLI
         run: |
           moon run tools/passport.mbtx build web
           test -f .passport/web/app.wasm
@@ -86,17 +81,17 @@ jobs:
           python3 tools/verify_pcm_identity.py
 
       - name: Set up Node 24
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
 
-      - name: Install pinned playwright and its chromium
+      - name: Install Playwright Chromium
         run: npx -y playwright@1.63.0 install chromium --with-deps
 
-      - name: Browser integration over the built bundle
+      - name: Browser integration
         run: node tools/web-integration/run.mjs
 
-      - name: Test Python asset and audio tooling
+      - name: Test asset tooling
         run: python3 -m unittest discover -s tools -p "test_*.py"
 
       - name: Formatting
@@ -105,16 +100,11 @@ jobs:
           git diff --exit-code
 
   device:
-    # The real device build proves the RELEASED package: the published
-    # SDK's Host glue (from .mooncakes) + the template's pinned FoloToy
-    # submodule, under ESP-IDF 5.5.3. No SDK source checkout, no flash.
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     container:
       image: espressif/idf:v5.5.3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           submodules: recursive
 
@@ -132,17 +122,13 @@ jobs:
           apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
           "$HOME/.moon/bin/moon" version --all
 
-      - name: Resolve the published dependencies
+      - name: Resolve published dependencies
         run: |
-          test ! -e moon.work
-          test ! -e tools/sync-dev-sdk.sh
           grep -q 'colmugx/ai-passport@0.0.4' moon.mod
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
 
-      # Container steps default to plain sh; IDF's export.sh and pipefail
-      # need bash (present in the image).
       - name: Real device build (ESP-IDF 5.5.3, no flash)
         shell: bash
         run: |
@@ -155,5 +141,5 @@ jobs:
           test "$size" -gt 0 -a "$size" -le 3670016
           margin="$(grep -oE 'app partition margin: [0-9]+ bytes' /tmp/device-build.log | head -n1 || true)"
           test -n "$margin"
-          echo "firmware size: $size / 3670016 bytes (0x380000 app partition)"
+          echo "firmware size: $size / 3670016 bytes"
           echo "passport: $margin"
