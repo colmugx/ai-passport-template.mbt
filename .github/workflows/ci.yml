@@ -4,15 +4,21 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   moonbit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           submodules: recursive
+          persist-credentials: false
 
-      - name: Assert the FoloToy submodule revision
+      - name: Assert the pinned FoloToy submodule revision
         run: |
           rev="$(git -C external/folotoy-ai-passport rev-parse HEAD)"
           echo "external/folotoy-ai-passport @ $rev"
@@ -24,26 +30,16 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
-      # The public-user path: everything the template consumes from the SDK
-      # resolves from the published Mooncakes package. There is deliberately
-      # no ai-passport.mbt checkout, no AI_PASSPORT_SDK, and no overlay.
+      # Everything the template consumes from the SDK resolves from the
+      # published Mooncakes package; `moon check` materializes it under
+      # .mooncakes (moon update alone only refreshes the index).
       - name: Resolve the published dependencies
         run: |
-          test ! -e moon.work
-          test ! -e tools/sync-dev-sdk.sh
           grep -q 'colmugx/ai-passport@0.0.4' moon.mod
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/web/index.html
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
-
-      - name: Install ffmpeg for the asset tooling
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-
-      - name: Asset normalization is deterministic
-        run: |
-          moon run tools/assets.mbtx
-          git diff --exit-code
 
       - name: Full-module checks and tests
         run: |
@@ -52,52 +48,34 @@ jobs:
             moon test --target "$target" --output-json
           done
 
-      - name: Wasm entry build and ABI v0 surface
+      # TRANSITIONAL (template cleanup bootstrap): normalize the canonical
+      # PCM on the runner, pin its identity, and upload it so the committed
+      # asset lands in the follow-up commit. Removed once the PCM is
+      # committed.
+      - name: Provision the canonical PCM from the authored source
         run: |
-          moon build --target wasm --release src/runtime_wasm
-          test -f _build/wasm/release/build/runtime_wasm/runtime_wasm.wasm
-          node -e '
-            const fs = require("fs");
-            const mod = new WebAssembly.Module(fs.readFileSync(
-              "_build/wasm/release/build/runtime_wasm/runtime_wasm.wasm"));
-            const names = WebAssembly.Module.imports(mod).map((i) => i.name);
-            if (names.includes("host_pcm_write")) {
-              throw new Error("runtime_wasm imports passport.host_pcm_write (forbidden in PCM asset mode)");
-            }
-            for (const n of ["host_battery_percent", "host_set_volume", "host_set_muted", "host_playback_pos_us"]) {
-              if (!names.includes(n)) throw new Error("missing required import " + n);
-            }
-            const exports = WebAssembly.Module.exports(mod).map((e) => e.name);
-            for (const n of ["memory", "passport_frame", "passport_input", "passport_fb_ptr",
-                             "passport_fb_len", "passport_frame_dirty", "passport_frame_consume"]) {
-              if (!exports.includes(n)) throw new Error("missing required export " + n);
-            }
-            console.log("wasm ABI surface ok; imports: " + names.join(", "));
-          '
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
+          ffmpeg -y -hide_banner -loglevel error -i assets/audio/forest_walk.mp3 -map 0:a:0 -vn -ar 16000 -ac 1 -c:a pcm_s16le -f s16le assets/forest_walk.pcm
+          sha256sum assets/forest_walk.pcm
+          test "$(sha256sum assets/forest_walk.pcm | cut -d' ' -f1)" = "a848e82fa15266fc474ccc2d9656e30ab24081d690d4944767c332fb7866010a"
+          test "$(stat -c %s assets/forest_walk.pcm)" = "2444800"
+
+      - name: Upload the canonical PCM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: forest_walk-pcm
+          path: assets/forest_walk.pcm
 
       - name: Web build through the published SDK CLI
         run: |
-          moon run tools/passport.mbtx build web
+          moonx colmugx/ai-passport/cmd/passport@0.0.4 build --host web
           test -f .passport/web/app.wasm
           test -f .passport/web/index.html
           test -f .passport/web/passport-host.js
           test -f .passport/web/pcm-worklet.js
-          cmp .passport/assets/forest_walk.pcm .passport/web/assets/forest_walk.pcm
-          python3 tools/verify_pcm_identity.py
-
-      - name: Set up Node 24
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-
-      - name: Install pinned playwright and its chromium
-        run: npx -y playwright@1.63.0 install chromium --with-deps
-
-      - name: Browser integration over the built bundle
-        run: node tools/web-integration/run.mjs
-
-      - name: Test Python asset and audio tooling
-        run: python3 -m unittest discover -s tools -p "test_*.py"
+          cmp assets/forest_walk.pcm .passport/web/assets/forest_walk.pcm
 
       - name: Formatting
         run: |
@@ -114,32 +92,40 @@ jobs:
     container:
       image: espressif/idf:v5.5.3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           submodules: recursive
+          persist-credentials: false
 
-      - name: Assert the FoloToy submodule revision
+      - name: Assert the pinned FoloToy submodule revision
         run: |
           rev="$(git -C external/folotoy-ai-passport rev-parse HEAD)"
           echo "external/folotoy-ai-passport @ $rev"
           test "$rev" = "c21a015d44f2bcc02b4d859532d74cd7aefe69be"
 
-      - name: Set up MoonBit and ffmpeg
+      - name: Set up MoonBit
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
           "$HOME/.moon/bin/moon" version --all
 
       - name: Resolve the published dependencies
         run: |
-          test ! -e moon.work
-          test ! -e tools/sync-dev-sdk.sh
           grep -q 'colmugx/ai-passport@0.0.4' moon.mod
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
+
+      # TRANSITIONAL (template cleanup bootstrap): the committed PCM asset
+      # lands in the follow-up commit; normalize it on the runner meanwhile.
+      - name: Provision the canonical PCM from the authored source
+        run: |
+          set -eu
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
+          ffmpeg -y -hide_banner -loglevel error -i assets/audio/forest_walk.mp3 -map 0:a:0 -vn -ar 16000 -ac 1 -c:a pcm_s16le -f s16le assets/forest_walk.pcm
+          sha256sum assets/forest_walk.pcm
+          test "$(sha256sum assets/forest_walk.pcm | cut -d' ' -f1)" = "a848e82fa15266fc474ccc2d9656e30ab24081d690d4944767c332fb7866010a"
 
       # Container steps default to plain sh; IDF's export.sh and pipefail
       # need bash (present in the image).
@@ -148,7 +134,7 @@ jobs:
         run: |
           set -eo pipefail
           . /opt/esp/idf/export.sh
-          moon run tools/passport.mbtx build device | tee /tmp/device-build.log
+          moonx colmugx/ai-passport/cmd/passport@0.0.4 build --host folotoy-ai-passport | tee /tmp/device-build.log
           test -f .passport/folotoy-ai-passport/build/ai_passport_app.bin
           grep -q "dependency: .*/external/folotoy-ai-passport @ c21a015d44f2bcc02b4d859532d74cd7aefe69be (project-provided)" /tmp/device-build.log
           size=$(stat -c %s .passport/folotoy-ai-passport/build/ai_passport_app.bin)

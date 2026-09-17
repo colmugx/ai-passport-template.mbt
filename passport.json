@@ -3,7 +3,7 @@
   "deviceEntry": "runtime_native",
   "assets": [
     {
-      "source": ".passport/assets/forest_walk.pcm",
+      "source": "assets/forest_walk.pcm",
       "bundlePath": "assets/forest_walk.pcm",
       "pcmLoop": true
     }

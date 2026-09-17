@@ -5,7 +5,5 @@ _build/
 /web/dist/
 /moon.work
 
-__pycache__/
-
-# Generated project workspace (canonical PCM, web/device bundles)
+# Generated build workspace (web/device bundles)
 /.passport/

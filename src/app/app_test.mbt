@@ -107,7 +107,7 @@ test "BPM 76 eighth conversion" {
 
 ///|
 test "playback position wraps at the canonical PCM duration" {
-  let duration = @generated.AUDIO_DURATION_US
+  let duration = @forest_walk.AUDIO_DURATION_US
   inspect(
     @app.loop_position_us(duration + 1_000_000L, duration),
     content="1000000",
@@ -218,7 +218,7 @@ test "Some(0) means live playback, not the fallback clock" {
 
 ///|
 test "exact loop boundary stays on the live PCM timeline" {
-  let duration = @generated.AUDIO_DURATION_US
+  let duration = @forest_walk.AUDIO_DURATION_US
   let app = @app.App::new()
   app.advance(0L)
   // Near the end of the loop the pose follows the live timeline.

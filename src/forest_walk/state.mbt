@@ -11,9 +11,9 @@ pub struct State {
   priv walker_frame : Int // fairy pose 0..=5, held 4/3 eighth notes per pose
   priv walker_sheet : @graphics.SpriteSheet // built once in State::new
   // The three authored parallax layers, built once in State::new.
-  priv far_layer : @generated.IndexedLayer
-  priv world_layer : @generated.IndexedLayer
-  priv foreground_layer : @generated.IndexedLayer
+  priv far_layer : IndexedLayer
+  priv world_layer : IndexedLayer
+  priv foreground_layer : IndexedLayer
 }
 
 ///|

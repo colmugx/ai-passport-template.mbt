@@ -11,7 +11,7 @@
 /// battery) and present `frame_view()` through their own display sink.
 ///
 /// The dependency direction is the Project Contract: this package depends
-/// only on the ai-passport SDK, `forest_walk` and `forest_walk/generated` —
+/// only on the ai-passport SDK and `forest_walk` —
 /// never on DOM, WebAudio, JS FFI, ESP-IDF, BSP or C FFI.
 pub struct App {
   priv canvas : @graphics.Canvas
@@ -145,7 +145,7 @@ fn App::musical_position(
   playback_position_us : Int64?,
   presentation_lead_us~ : Int64,
 ) -> Int {
-  let duration = @generated.AUDIO_DURATION_US
+  let duration = @forest_walk.AUDIO_DURATION_US
   match playback_position_us {
     Some(position) if position >= 0L && duration > 0L =>
       musical_eighths(

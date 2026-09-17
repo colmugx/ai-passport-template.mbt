@@ -16,7 +16,7 @@ test "battery HUD formats runtime percentage and unknown reading" {
 /// stay in this test file.
 fn draw_indexed_layer_reference(
   canvas~ : @graphics.Canvas,
-  layer~ : @generated.IndexedLayer,
+  layer~ : IndexedLayer,
   scroll_x~ : Int,
 ) -> Unit {
   let screen_width = canvas.width()
@@ -107,7 +107,7 @@ fn framebuffers_equal(a : @graphics.FrameView, b : @graphics.FrameView) -> Bool 
 /// Draws one layer with both renderers on fresh canvases and asserts the
 /// framebuffers are identical.
 fn assert_layer_equivalence(
-  layer~ : @generated.IndexedLayer,
+  layer~ : IndexedLayer,
   scroll_x~ : Int,
   width~ : Int,
   height~ : Int,
