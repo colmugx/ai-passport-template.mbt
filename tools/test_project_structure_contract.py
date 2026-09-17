@@ -143,7 +143,8 @@ class ProjectStructureContractTests(unittest.TestCase):
 
     def test_dispatcher_delegates_to_the_published_sdk_cli(self):
         text = (REPO_ROOT / "tools" / "passport.mbtx").read_text()
-        self.assertIn("src/cmd/passport", text)
+        self.assertIn("moonx", text)
+        self.assertIn("colmugx/ai-passport/cmd/passport@0.0.4", text)
         self.assertIn("folotoy-ai-passport", text)
         self.assertNotIn(
             "AI_PASSPORT_SDK",

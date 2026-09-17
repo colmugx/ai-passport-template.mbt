@@ -1,10 +1,8 @@
 // Project build dispatcher: the real builds live in the passport CLI of the
-// published SDK package (colmugx/ai-passport pinned in moon.mod), run from
-// the copy Moon materializes for this module under .mooncakes/. The
-// registry carries no prebuilt moonx asset for this release (moonx
-// colmugx/ai-passport/cmd/passport@<version> answers "Prebuilt wasm asset
-// does not exist"), so the CLI runs from the materialized published
-// package; switch to that moonx form when a release ships the asset.
+// published SDK package, run through moonx — the supported public executable
+// path (`moonx colmugx/ai-passport/cmd/passport@0.0.4`, the registry's
+// prebuilt asset). The CLI itself reads its Host assets from the copy of the
+// published package Moon materializes for this module under .mooncakes/.
 //
 //   moon run tools/passport.mbtx assets
 //   moon run tools/passport.mbtx build web
@@ -21,10 +19,9 @@ import {
 }
 
 ///|
-/// The passport CLI package inside the Moon-materialized published SDK
-/// dependency (Moon's public .mooncakes layout, the same tree the CLI
-/// itself reads its Host assets from).
-const CLI_PACKAGE : String = ".mooncakes/colmugx/ai-passport/src/cmd/passport"
+/// The published passport CLI as a moonx coordinate; must match the
+/// colmugx/ai-passport pin in moon.mod.
+const PASSPORT_CLI : String = "colmugx/ai-passport/cmd/passport@0.0.4"
 
 async fn run_step(cmd : @shell.Cmd, what : String) -> Unit {
   println("passport: \{what}")
@@ -35,22 +32,21 @@ async fn run_step(cmd : @shell.Cmd, what : String) -> Unit {
 }
 
 ///|
-/// One normal Moon project operation so Moon itself resolves and
-/// materializes the published dependency into .mooncakes — a fresh clone
-/// needs this before the CLI package path exists (`moon update` refreshes
-/// the registry index only). The check result is cached, so on later runs
-/// this is a no-op guard hit.
-async fn ensure_dependencies_materialized() -> Unit {
-  if @fs.exists("\{CLI_PACKAGE}/moon.pkg") {
+/// One normal Moon project operation so Moon materializes the published
+/// dependency's Host assets into .mooncakes — a fresh clone needs this
+/// before a build (`moon update` refreshes the registry index only). Cached:
+/// a no-op once .mooncakes exists.
+async fn ensure_sdk_materialized() -> Unit {
+  if @fs.exists(".mooncakes/colmugx/ai-passport/moon.mod") {
     return
   }
   run_step(
     @shell.Cmd::Cmd("moon", ["check", "--target", "native"]),
     "resolving the published SDK dependency (first run)",
   )
-  guard @fs.exists("\{CLI_PACKAGE}/moon.pkg") else {
+  guard @fs.exists(".mooncakes/colmugx/ai-passport/moon.mod") else {
     fail(
-      "passport: the published SDK CLI did not materialize at \{CLI_PACKAGE}; verify moon.mod and run moon update",
+      "passport: the published SDK did not materialize under .mooncakes/colmugx/ai-passport; verify moon.mod and run moon update",
     )
   }
 }
@@ -60,20 +56,18 @@ async fn ensure_dependencies_materialized() -> Unit {
 /// project. `--project` crosses as an absolute path because the CLI resolves
 /// it relative to its own working directory.
 async fn passport_cli(args : Array[String], what : String) -> Unit {
-  ensure_dependencies_materialized()
+  ensure_sdk_materialized()
   guard @env.current_dir() is Some(root) else {
     fail("passport: cannot resolve the project root (no current directory)")
   }
-  let argv : Array[String] = [
-    "run", "--target", "wasm", CLI_PACKAGE, "--",
-  ]
+  let argv : Array[String] = [PASSPORT_CLI]
   for arg in args {
     argv.push(arg)
   }
   argv.push("--project")
   argv.push(root)
   run_step(
-    @shell.Cmd::Cmd("moon", argv),
+    @shell.Cmd::Cmd("moonx", argv),
     what,
   )
 }
