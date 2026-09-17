@@ -17,7 +17,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-SDK_DEPENDENCY = "colmugx/ai-passport@0.0.3"
+SDK_DEPENDENCY = "colmugx/ai-passport@0.0.4"
 DEV_URL_QUERY = "index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1"
 
 
@@ -48,7 +48,11 @@ class ProjectStructureContractTests(unittest.TestCase):
             text,
             f"moon.mod must depend on the published SDK ({SDK_DEPENDENCY})",
         )
-        for older in ("colmugx/ai-passport@0.0.2", "colmugx/ai-passport@0.0.1"):
+        for older in (
+            "colmugx/ai-passport@0.0.3",
+            "colmugx/ai-passport@0.0.2",
+            "colmugx/ai-passport@0.0.1",
+        ):
             self.assertNotIn(older, text)
 
     def test_no_moon_work(self):
@@ -137,25 +141,39 @@ class ProjectStructureContractTests(unittest.TestCase):
         )
         self.assertEqual(looping[0]["bundlePath"], "assets/forest_walk.pcm")
 
-    def test_dispatcher_delegates_to_the_sdk_cli(self):
+    def test_dispatcher_delegates_to_the_published_sdk_cli(self):
         text = (REPO_ROOT / "tools" / "passport.mbtx").read_text()
         self.assertIn("src/cmd/passport", text)
         self.assertIn("folotoy-ai-passport", text)
+        self.assertNotIn(
+            "AI_PASSPORT_SDK",
+            text,
+            "the dispatcher must run the published package, not a private "
+            "SDK checkout",
+        )
+        self.assertFalse(
+            (REPO_ROOT / "tools" / "sync-dev-sdk.sh").exists(),
+            "tools/sync-dev-sdk.sh overlaid a private SDK checkout and must "
+            "stay deleted",
+        )
         self.assertFalse(
             (REPO_ROOT / "tools" / "build.mbtx").exists(),
             "tools/build.mbtx duplicated the SDK CLI web build and must "
             "stay deleted",
         )
 
-    def test_dev_mbtx_targets_sdk_index_html_with_host_params(self):
-        text = (REPO_ROOT / "tools" / "dev.mbtx").read_text()
-        self.assertIn(
-            DEV_URL_QUERY,
-            text,
-            "the dev URL must be the SDK index.html with generic "
-            "?pcm= / ?pcmLoop= host configuration",
+    def test_dev_mbtx_stays_deleted_and_the_dispatcher_keeps_dev(self):
+        self.assertFalse(
+            (REPO_ROOT / "tools" / "dev.mbtx").exists(),
+            "tools/dev.mbtx duplicated the SDK CLI dev server and must stay "
+            "deleted",
         )
-        self.assertNotIn("app.html", text)
+        text = (REPO_ROOT / "tools" / "passport.mbtx").read_text()
+        self.assertIn(
+            '"dev"',
+            text,
+            "the dispatcher must keep offering dev through the SDK CLI",
+        )
 
     def test_web_integration_still_exists_and_boots_the_sdk_page(self):
         runner = REPO_ROOT / "tools" / "web-integration" / "run.mjs"

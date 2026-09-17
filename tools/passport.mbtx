@@ -1,8 +1,10 @@
-// Project build dispatcher: the real builds live in the SDK's passport CLI
-// (src/cmd/passport of the colmugx/ai-passport checkout), invoked from that
-// checkout — the sibling ../ai-passport.mbt, or $AI_PASSPORT_SDK
-// (tools/sync-dev-sdk.sh overlays the same checkout into .mooncakes so the
-// module compiles against the unreleased SDK surface).
+// Project build dispatcher: the real builds live in the passport CLI of the
+// published SDK package (colmugx/ai-passport pinned in moon.mod), run from
+// the copy Moon materializes for this module under .mooncakes/. The
+// registry carries no prebuilt moonx asset for this release (moonx
+// colmugx/ai-passport/cmd/passport@<version> answers "Prebuilt wasm asset
+// does not exist"), so the CLI runs from the materialized published
+// package; switch to that moonx form when a release ships the asset.
 //
 //   moon run tools/passport.mbtx assets
 //   moon run tools/passport.mbtx build web
@@ -18,6 +20,12 @@ import {
   "moonbitlang/core/env",
 }
 
+///|
+/// The passport CLI package inside the Moon-materialized published SDK
+/// dependency (Moon's public .mooncakes layout, the same tree the CLI
+/// itself reads its Host assets from).
+const CLI_PACKAGE : String = ".mooncakes/colmugx/ai-passport/src/cmd/passport"
+
 async fn run_step(cmd : @shell.Cmd, what : String) -> Unit {
   println("passport: \{what}")
   let code = cmd.each_line(line => println("  \{line}"))
@@ -27,25 +35,37 @@ async fn run_step(cmd : @shell.Cmd, what : String) -> Unit {
 }
 
 ///|
-/// The SDK checkout holding the passport CLI: $AI_PASSPORT_SDK, else the
-/// sibling checkout — the same rule tools/sync-dev-sdk.sh applies.
-fn sdk_dir() -> String {
-  match @env.get_env_var("AI_PASSPORT_SDK") {
-    Some(dir) => dir
-    None => "../ai-passport.mbt"
+/// One normal Moon project operation so Moon itself resolves and
+/// materializes the published dependency into .mooncakes — a fresh clone
+/// needs this before the CLI package path exists (`moon update` refreshes
+/// the registry index only). The check result is cached, so on later runs
+/// this is a no-op guard hit.
+async fn ensure_dependencies_materialized() -> Unit {
+  if @fs.exists("\{CLI_PACKAGE}/moon.pkg") {
+    return
+  }
+  run_step(
+    @shell.Cmd::Cmd("moon", ["check", "--target", "native"]),
+    "resolving the published SDK dependency (first run)",
+  )
+  guard @fs.exists("\{CLI_PACKAGE}/moon.pkg") else {
+    fail(
+      "passport: the published SDK CLI did not materialize at \{CLI_PACKAGE}; verify moon.mod and run moon update",
+    )
   }
 }
 
 ///|
-/// Runs one SDK passport CLI command against this project. The CLI resolves
-/// `--project` against its own working directory, so the template root must
-/// cross as an absolute path.
+/// Runs one passport CLI command of the published SDK package against this
+/// project. `--project` crosses as an absolute path because the CLI resolves
+/// it relative to its own working directory.
 async fn passport_cli(args : Array[String], what : String) -> Unit {
+  ensure_dependencies_materialized()
   guard @env.current_dir() is Some(root) else {
     fail("passport: cannot resolve the project root (no current directory)")
   }
   let argv : Array[String] = [
-    "run", "--target", "wasm", "src/cmd/passport", "--",
+    "run", "--target", "wasm", CLI_PACKAGE, "--",
   ]
   for arg in args {
     argv.push(arg)
@@ -53,7 +73,7 @@ async fn passport_cli(args : Array[String], what : String) -> Unit {
   argv.push("--project")
   argv.push(root)
   run_step(
-    @shell.Cmd::Cmd("moon", argv, cwd=sdk_dir()),
+    @shell.Cmd::Cmd("moon", argv),
     what,
   )
 }
@@ -89,7 +109,19 @@ async fn main {
           fail("passport build: expected 'web' or 'device', got: '\{target}'")
       }
     }
-    "dev" => run_step(@shell.Cmd("moon", ["run", "tools/dev.mbtx"]), "dev")
+    "dev" => {
+      // The published CLI owns the dev server (build, serve, URL); PORT
+      // stays honored from the previous tools/dev.mbtx workflow.
+      let dev_args : Array[String] = ["dev"]
+      match @env.get_env_var("PORT") {
+        Some(port) => {
+          dev_args.push("--port")
+          dev_args.push(port)
+        }
+        None => ()
+      }
+      passport_cli(dev_args, "dev (SDK passport CLI)")
+    }
     _ =>
       fail(
         "passport: unknown command '\{command}'; expected one of: assets, build web, build device, dev",

@@ -1,7 +1,7 @@
 # AI Passport application template
 
 
-`moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.3` (plus `moonbitlang/async@0.22.1`). The thin native device entry compiles against SDK surfaces no published release ships yet, so a dev overlay is used until the next SDK release (the pin bumps to that release when it ships): `tools/sync-dev-sdk.sh` copies a local SDK checkout into the ignored `.mooncakes/colmugx/ai-passport/` (generated state — re-run it after changing the SDK checkout, and after any `moon update`, which re-materializes the published package over it). CI checks out the SDK at `main` and runs the same script.
+`moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.4` (plus `moonbitlang/async@0.22.1`). Everything the template consumes from the SDK — libraries, the Web Host files, the device Host glue, and the `passport` CLI that builds both Hosts — resolves from that published package through normal Moon dependency resolution (`moon update`); no SDK source checkout is needed anywhere.
 
 ```text
 Forest Walk application logic (src/forest_walk + src/app, shared)
@@ -114,7 +114,6 @@ Install the MoonBit toolchain, then run:
 
 ```sh
 moon update
-./tools/sync-dev-sdk.sh
 ./tools/compile_assets.sh
 moon check --target native --output-json
 moon test --target native --output-json
