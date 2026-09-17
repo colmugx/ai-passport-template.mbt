@@ -1,6 +1,6 @@
 # AI Passport application template
 
-`moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.4`. Everything the template consumes from the SDK — libraries, the Web Host files, the device Host glue, and the `passport` CLI that builds both Hosts — resolves from that published package through normal Moon dependency resolution (`moon update`); no SDK source checkout is needed anywhere. AI Passport application development is MoonBit application development: a fresh clone needs the MoonBit toolchain and nothing else (the device build additionally needs the ESP-IDF Host toolchain).
+`moon.mod` depends on the published Mooncakes package `colmugx/ai-passport@0.0.5`. Everything the template consumes from the SDK — libraries, the Web Host files, the device Host glue, and the `passport` CLI that builds both Hosts — resolves from that published package through normal Moon dependency resolution (`moon update`); no SDK source checkout is needed anywhere. AI Passport application development is MoonBit application development: a fresh clone needs the MoonBit toolchain and nothing else (the device build additionally needs the ESP-IDF Host toolchain).
 
 ```text
 Forest Walk application logic (src/forest_walk + src/app, shared)
@@ -22,7 +22,7 @@ The device backend (the ESP-IDF 5.5.3 glue and all C bridges: display DMA, butto
 Toolchain preconditions (the SDK `passport doctor --host folotoy-ai-passport` verifies all of them): ESP-IDF v5.5.3 with `idf.py` on PATH (`source $IDF_PATH/export.sh`), the MoonBit toolchain `moon 0.1.20260915`, and `$MOON_HOME` pointing at the MoonBit installation whose runtime hash the SDK host manifest pins.
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.0.4 build --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.0.5 build --host folotoy-ai-passport
 ```
 
 The SDK `passport` CLI captures MoonBit-generated C from the thin entry, materializes the host project into the ignored `.passport/folotoy-ai-passport/` workspace (including `passport_music.pcm`, a byte-for-byte copy of the contract's `pcmLoop` asset), connects the pinned FoloToy BSP (`external/folotoy-ai-passport`, the template's submodule, declared via `hostDependencies`; the SDK never carries or downloads third-party hardware code beyond that pinned revision), and runs `idf.py reconfigure` followed by `idf.py build`. It never flashes. With a board connected, flash and monitor from the materialized workspace:
@@ -37,13 +37,13 @@ The SDK `passport` CLI captures MoonBit-generated C from the thin entry, materia
 The supported web build command assembles `.passport/web/` (app.wasm, the SDK Web Host files copied byte-for-byte from the resolved published SDK package, and the canonical PCM under `assets/`):
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.0.4 build --host web
+moonx colmugx/ai-passport/cmd/passport@0.0.5 build --host web
 ```
 
 The supported web development command builds that bundle, serves it over localhost, and prints the URL:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.0.4 dev
+moonx colmugx/ai-passport/cmd/passport@0.0.5 dev
 # http://127.0.0.1:8000/index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1
 # (append --port 9000 to change the port; Ctrl-C stops)
 ```

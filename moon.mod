@@ -8,7 +8,7 @@ repository = "https://github.com/colmugx/ai-passport-template.mbt"
 
 license = "Apache-2.0"
 
-keywords = [ "moonbit", "game", "template", "folotoy" ]
+keywords = [ "moonbit", "template", "folotoy" ]
 
 preferred_target = "native"
 
@@ -17,5 +17,5 @@ description = "Starter application template for the FoloToy AI Passport wearable
 source = "src"
 
 import {
-  "colmugx/ai-passport@0.0.4",
+  "colmugx/ai-passport@0.0.5",
 }
