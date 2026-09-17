@@ -33,6 +33,7 @@ jobs:
           test ! -e tools/sync-dev-sdk.sh
           grep -q 'colmugx/ai-passport@0.0.4' moon.mod
           moon update
+          moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/web/index.html
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
 
@@ -137,6 +138,7 @@ jobs:
           test ! -e tools/sync-dev-sdk.sh
           grep -q 'colmugx/ai-passport@0.0.4' moon.mod
           moon update
+          moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
 
       # Container steps default to plain sh; IDF's export.sh and pipefail
