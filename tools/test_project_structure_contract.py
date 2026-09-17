@@ -1,17 +1,20 @@
 import json
+import re
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SDK_DEPENDENCY = "colmugx/ai-passport@0.0.4"
-PASSPORT_CLI = "colmugx/ai-passport/cmd/passport@0.0.4"
+
+
+def sdk_version() -> str:
+    text = (REPO_ROOT / "moon.mod").read_text()
+    match = re.search(r'"colmugx/ai-passport@([^"\s]+)"', text)
+    if match is None:
+        raise AssertionError("moon.mod must depend on colmugx/ai-passport")
+    return match.group(1)
 
 
 class ProjectStructureContractTests(unittest.TestCase):
-    def test_moon_mod_uses_current_sdk(self):
-        text = (REPO_ROOT / "moon.mod").read_text()
-        self.assertIn(f'"{SDK_DEPENDENCY}",', text)
-
     def test_host_dependency_is_project_provided(self):
         dep = REPO_ROOT / "external" / "folotoy-ai-passport"
         self.assertTrue((dep / "components" / "bsp" / "include").is_dir())
@@ -58,9 +61,10 @@ class ProjectStructureContractTests(unittest.TestCase):
             ],
         )
 
-    def test_dispatcher_uses_current_published_cli(self):
+    def test_dispatcher_matches_current_sdk_dependency(self):
         text = (REPO_ROOT / "tools" / "passport.mbtx").read_text()
-        self.assertIn(PASSPORT_CLI, text)
+        coordinate = f"colmugx/ai-passport/cmd/passport@{sdk_version()}"
+        self.assertIn(coordinate, text)
         self.assertIn('"moonx"', text)
         self.assertIn('"folotoy-ai-passport"', text)
 
