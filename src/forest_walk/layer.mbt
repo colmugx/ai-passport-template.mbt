@@ -66,7 +66,7 @@ pub fn foreground_scroll_offset(scroll : Int) -> Int {
 /// construction and every write goes through `Canvas::pixel`.
 fn draw_indexed_layer(
   canvas~ : @graphics.Canvas,
-  layer~ : @generated.IndexedLayer,
+  layer~ : IndexedLayer,
   scroll_x~ : Int,
 ) -> Unit {
   let screen_width = canvas.width()

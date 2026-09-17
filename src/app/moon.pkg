@@ -2,5 +2,4 @@ import {
   "colmugx/ai-passport/graphics",
   "colmugx/ai-passport/input",
   "colmugx/ai-passport-template/forest_walk",
-  "colmugx/ai-passport-template/forest_walk/generated",
 }

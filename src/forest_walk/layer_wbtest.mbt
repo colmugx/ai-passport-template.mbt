@@ -3,7 +3,7 @@
 // down exact scroll offsets.
 
 ///|
-fn count_transparent_samples(layer : @generated.IndexedLayer) -> Int {
+fn count_transparent_samples(layer : IndexedLayer) -> Int {
   guard layer.transparent_index is Some(t) else { return 0 }
   let mut count = 0
   for index in layer.indices {
@@ -45,7 +45,7 @@ test "far layer is fully opaque, world and foreground carry transparency" {
 test "transparent samples leave the destination pixel untouched" {
   // 3x2 layer with index 0 reserved: row 0 = red, gap, blue;
   // row 1 = blue, blue, gap.
-  let layer : @generated.IndexedLayer = {
+  let layer : IndexedLayer = {
     width: 3,
     height: 2,
     palette: FixedArray::from_array([
@@ -86,7 +86,7 @@ test "renderer samples the mirrored tile past the layer width" {
   // 2x1 layer: [red, blue]. World x 2 and 3 land in the mirror, sampling
   // blue then red, so a scroll of 2 swaps the two on-screen pixels without
   // any mirrored copy in the data.
-  let layer : @generated.IndexedLayer = {
+  let layer : IndexedLayer = {
     width: 2,
     height: 1,
     palette: FixedArray::from_array([
