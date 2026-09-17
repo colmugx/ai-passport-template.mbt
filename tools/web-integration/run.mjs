@@ -8,7 +8,7 @@
 //
 // Uses the pinned playwright (1.63.0) exactly like the SDK CI: bare import
 // first, then the npx cache. The page under test is the SDK's own
-// index.html booted by the published SDK 0.0.3 DOM auto-boot inside
+// index.html booted by the published SDK package DOM auto-boot inside
 // passport-host.js, configured generically through URL parameters
 // (?pcm=./assets/forest_walk.pcm&pcmLoop=1) — the exact production/dev
 // boot path. No page code imports createHost, and the bundle must not

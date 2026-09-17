@@ -1,5 +1,4 @@
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -14,13 +13,9 @@ import compile_audio
 
 
 def sdk_root() -> Path:
-    """The SDK checkout owning the device Host: $AI_PASSPORT_SDK, else the
-    sibling checkout — the same rule tools/passport.mbtx and
-    tools/sync-dev-sdk.sh apply."""
-    override = os.environ.get("AI_PASSPORT_SDK")
-    if override:
-        return Path(override)
-    return REPO_ROOT.parent / "ai-passport.mbt"
+    """The Moon-materialized published SDK package owning the device Host
+    (resolved by normal `moon update` dependency resolution)."""
+    return REPO_ROOT / ".mooncakes" / "colmugx" / "ai-passport"
 
 
 def make_tone(path: Path, seconds: float) -> None:
@@ -136,8 +131,8 @@ class CompileAudioTests(unittest.TestCase):
         table = sdk_root() / "hosts" / "folotoy" / "ai-passport" / "partitions.csv"
         if not table.is_file():
             self.skipTest(
-                f"SDK device Host partitions.csv not found: {table} "
-                "(set AI_PASSPORT_SDK)"
+                f"published SDK package not materialized yet: {table} "
+                "(run moon update)"
             )
         sizes = {}
         for line in table.read_text().splitlines():
