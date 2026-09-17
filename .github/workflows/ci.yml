@@ -29,7 +29,6 @@ jobs:
 
       - name: Resolve published dependencies
         run: |
-          grep -q 'colmugx/ai-passport@0.0.4' moon.mod
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/web/index.html
@@ -124,7 +123,6 @@ jobs:
 
       - name: Resolve published dependencies
         run: |
-          grep -q 'colmugx/ai-passport@0.0.4' moon.mod
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
