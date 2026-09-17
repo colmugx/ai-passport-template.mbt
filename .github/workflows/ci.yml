@@ -48,25 +48,11 @@ jobs:
             moon test --target "$target" --output-json
           done
 
-      # TRANSITIONAL (template cleanup bootstrap): normalize the canonical
-      # PCM on the runner, pin its identity, and upload it so the committed
-      # asset lands in the follow-up commit. Removed once the PCM is
-      # committed.
-      - name: Provision the canonical PCM from the authored source
+      - name: Assert the committed canonical PCM identity
         run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
-          ffmpeg -y -hide_banner -loglevel error -i assets/audio/forest_walk.mp3 -map 0:a:0 -vn -ar 16000 -ac 1 -c:a pcm_s16le -f s16le assets/forest_walk.pcm
           sha256sum assets/forest_walk.pcm
           test "$(sha256sum assets/forest_walk.pcm | cut -d' ' -f1)" = "a848e82fa15266fc474ccc2d9656e30ab24081d690d4944767c332fb7866010a"
           test "$(stat -c %s assets/forest_walk.pcm)" = "2444800"
-
-      - name: Upload the canonical PCM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: forest_walk-pcm
-          path: assets/forest_walk.pcm
 
       - name: Web build through the published SDK CLI
         run: |
@@ -115,17 +101,6 @@ jobs:
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
-
-      # TRANSITIONAL (template cleanup bootstrap): the committed PCM asset
-      # lands in the follow-up commit; normalize it on the runner meanwhile.
-      - name: Provision the canonical PCM from the authored source
-        run: |
-          set -eu
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
-          ffmpeg -y -hide_banner -loglevel error -i assets/audio/forest_walk.mp3 -map 0:a:0 -vn -ar 16000 -ac 1 -c:a pcm_s16le -f s16le assets/forest_walk.pcm
-          sha256sum assets/forest_walk.pcm
-          test "$(sha256sum assets/forest_walk.pcm | cut -d' ' -f1)" = "a848e82fa15266fc474ccc2d9656e30ab24081d690d4944767c332fb7866010a"
 
       # Container steps default to plain sh; IDF's export.sh and pipefail
       # need bash (present in the image).
