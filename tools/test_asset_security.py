@@ -1,4 +1,5 @@
 import os
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -45,6 +46,8 @@ class AssetSecurityTests(unittest.TestCase):
                 png_decode.read_rgba_png(path)
 
     def test_audio_budget_failure_preserves_previous_output(self):
+        if shutil.which("ffmpeg") is None:
+            self.skipTest("ffmpeg is not installed")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "tone.wav"
