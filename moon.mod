@@ -8,7 +8,7 @@ repository = "https://github.com/colmugx/ai-passport-template.mbt"
 
 license = "Apache-2.0"
 
-keywords = [ "moonbit", "game", "template", "folotoy" ]
+keywords = [ "moonbit", "application", "template", "folotoy" ]
 
 preferred_target = "native"
 
