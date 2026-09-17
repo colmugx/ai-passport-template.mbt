@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Shared minimal PNG reader for the Forest Walk asset compilers.
-
-Only Python's standard library is required. The supported source format is
-8-bit, non-interlaced PNG in color types 2 (truecolor RGB), 3 (indexed with
-PLTE and optional tRNS), or 6 (truecolor RGBA); anything else fails
-explicitly. Decoded pixels are always returned as row-major RGBA bytes.
-"""
+"""Minimal PNG decoder used by the asset compilers."""
 
 from __future__ import annotations
 
@@ -14,7 +8,9 @@ import zlib
 from pathlib import Path
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-SUPPORTED_COLOR_TYPES = {2: 3, 3: 1, 6: 4}  # color type -> bytes per pixel
+SUPPORTED_COLOR_TYPES = {2: 3, 3: 1, 6: 4}
+MAX_FILE_BYTES = 32 * 1024 * 1024
+MAX_PIXELS = 16_000_000
 
 
 def paeth(left: int, above: int, upper_left: int) -> int:
@@ -28,7 +24,9 @@ def paeth(left: int, above: int, upper_left: int) -> int:
 
 
 def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
-    """Decodes `path` into (width, height, row-major RGBA bytes)."""
+    size = path.stat().st_size
+    if size > MAX_FILE_BYTES:
+        raise ValueError(f"{path}: PNG is too large ({size} bytes)")
     data = path.read_bytes()
     if not data.startswith(PNG_SIGNATURE):
         raise ValueError(f"{path}: invalid PNG signature")
@@ -41,6 +39,7 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
     palette_alpha: bytes | None = None
     idat = bytearray()
     saw_end = False
+
     while offset < len(data):
         if offset + 12 > len(data):
             raise ValueError(f"{path}: truncated PNG chunk header")
@@ -62,6 +61,8 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
             width, height, depth, color_type, compression, filtering, interlace = (
                 struct.unpack(">IIBBBBB", payload)
             )
+            if width == 0 or height == 0 or width * height > MAX_PIXELS:
+                raise ValueError(f"{path}: image dimensions {width}x{height} exceed limits")
             if depth != 8 or compression != 0 or filtering != 0 or interlace != 0:
                 raise ValueError(
                     f"{path}: expected 8-bit non-interlaced PNG with default "
@@ -97,6 +98,8 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
                 raise ValueError(f"{path}: IDAT precedes IHDR")
             if color_type == 3 and palette is None:
                 raise ValueError(f"{path}: indexed PNG has no PLTE before IDAT")
+            if len(idat) + length > MAX_FILE_BYTES:
+                raise ValueError(f"{path}: compressed image data exceeds limits")
             idat.extend(payload)
         elif kind == b"IEND":
             if length != 0 or offset != len(data):
@@ -108,14 +111,23 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
 
     if dimensions is None or not idat or not saw_end:
         raise ValueError(f"{path}: missing IHDR, IDAT, or IEND")
+
     width, height = dimensions
     row_bytes = width * bytes_per_pixel
+    expected_length = height * (row_bytes + 1)
     try:
-        compressed_rows = zlib.decompress(idat)
+        decoder = zlib.decompressobj()
+        compressed_rows = decoder.decompress(idat, expected_length + 1)
+        if len(compressed_rows) > expected_length or decoder.unconsumed_tail:
+            raise ValueError(f"{path}: decompressed image data exceeds expected size")
+        compressed_rows += decoder.flush(expected_length + 1 - len(compressed_rows))
     except zlib.error as error:
         raise ValueError(f"{path}: invalid compressed image data: {error}") from error
-    expected_length = height * (row_bytes + 1)
-    if len(compressed_rows) != expected_length:
+    if (
+        len(compressed_rows) != expected_length
+        or not decoder.eof
+        or decoder.unused_data
+    ):
         raise ValueError(
             f"{path}: expected {expected_length} decompressed bytes, "
             f"got {len(compressed_rows)}"
@@ -142,6 +154,7 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
                 paeth(left, above, upper_left),
             )[filter_type]
             row[i] = (value + predictor) & 0xFF
+
         destination = y * width * 4
         if bytes_per_pixel == 4:
             rgba[destination : destination + row_bytes] = row
@@ -149,9 +162,7 @@ def read_rgba_png(path: Path) -> tuple[int, int, bytes]:
             for x in range(width):
                 source = x * 3
                 target = destination + x * 4
-                rgba[target] = row[source]
-                rgba[target + 1] = row[source + 1]
-                rgba[target + 2] = row[source + 2]
+                rgba[target : target + 3] = row[source : source + 3]
                 rgba[target + 3] = 255
         else:
             if palette is None:
