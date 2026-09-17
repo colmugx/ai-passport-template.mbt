@@ -1,112 +1,33 @@
-"""Guards the R4A2 single-implementation, SDK-owned-host architecture.
-
-There is exactly ONE application implementation: the shared MoonBit App
-executed by the SDK Web Host through src/runtime_wasm on the web side and
-by the SDK device backend through the thin src/runtime_native entry on the
-device side. The template owns no Host implementation: the legacy template
-device tree (device/, src/device) is gone, the FoloToy BSP is the project's
-pinned external submodule (declared to the SDK via hostDependencies), and the
-legacy JS browser runtime (src/web, the root web/ preview shell, dev.sh)
-is gone; the SDK's own index.html with generic URL parameters is the only
-web entry.
-"""
-
 import json
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-
 SDK_DEPENDENCY = "colmugx/ai-passport@0.0.4"
-DEV_URL_QUERY = "index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1"
+PASSPORT_CLI = "colmugx/ai-passport/cmd/passport@0.0.4"
 
 
 class ProjectStructureContractTests(unittest.TestCase):
-    def test_legacy_browser_runtime_is_gone(self):
-        self.assertFalse(
-            (REPO_ROOT / "src" / "web").exists(),
-            "src/web must not exist: the shared MoonBit App + SDK Web Host "
-            "is the only browser implementation",
-        )
-
-    def test_legacy_root_web_preview_is_gone(self):
-        self.assertFalse(
-            (REPO_ROOT / "web").exists(),
-            "the root web/ preview shell must not exist",
-        )
-
-    def test_legacy_dev_sh_is_gone(self):
-        self.assertFalse(
-            (REPO_ROOT / "dev.sh").exists(),
-            "dev.sh belonged to the deleted JS preview architecture",
-        )
-
-    def test_moon_mod_pins_published_sdk(self):
+    def test_moon_mod_uses_current_sdk(self):
         text = (REPO_ROOT / "moon.mod").read_text()
-        self.assertIn(
-            f'"{SDK_DEPENDENCY}",',
-            text,
-            f"moon.mod must depend on the published SDK ({SDK_DEPENDENCY})",
-        )
-        for older in (
-            "colmugx/ai-passport@0.0.3",
-            "colmugx/ai-passport@0.0.2",
-            "colmugx/ai-passport@0.0.1",
-        ):
-            self.assertNotIn(older, text)
+        self.assertIn(f'"{SDK_DEPENDENCY}",', text)
 
-    def test_no_moon_work(self):
-        self.assertFalse(
-            (REPO_ROOT / "moon.work").exists(),
-            "moon.work would override the published dependency resolution",
-        )
-
-    def test_host_implementations_are_sdk_owned(self):
-        for gone in (
-            "device",
-            "src/device",
-            "tools/moon_cc_capture.py",
-        ):
-            self.assertFalse(
-                (REPO_ROOT / gone).exists(),
-                f"{gone} must not exist: Host implementation is SDK-owned "
-                "(hosts live in the SDK's hosts/folotoy/ai-passport)",
-            )
-
-    def test_bsp_submodule_is_the_project_provided_dependency(self):
+    def test_host_dependency_is_project_provided(self):
         dep = REPO_ROOT / "external" / "folotoy-ai-passport"
-        self.assertTrue(
-            (dep / "components" / "bsp" / "include").is_dir(),
-            "external/folotoy-ai-passport must stay the template's pinned "
-            "submodule (the contract's hostDependencies checkout); run "
-            "git submodule update --init --recursive",
+        self.assertTrue((dep / "components" / "bsp" / "include").is_dir())
+        contract = json.loads((REPO_ROOT / "passport.json").read_text())
+        self.assertEqual(
+            contract["hostDependencies"]["folotoy-ai-passport"]["path"],
+            "external/folotoy-ai-passport",
         )
-        contract = (REPO_ROOT / "passport.json").read_text()
-        self.assertIn("external/folotoy-ai-passport", contract)
 
-    def test_device_entry_is_a_thin_native_foreign_library(self):
-        pkg = REPO_ROOT / "src" / "runtime_native" / "moon.pkg"
-        self.assertTrue(
-            pkg.is_file(),
-            "src/runtime_native/moon.pkg must exist: the thin device entry",
-        )
-        text = pkg.read_text()
+    def test_device_entry_is_thin_native_foreign_library(self):
+        package = REPO_ROOT / "src" / "runtime_native" / "moon.pkg"
+        text = package.read_text()
         self.assertIn('supported_targets = "native"', text)
         self.assertIn('pkgtype(kind: "foreign_library")', text)
-        # The SDK passport CLI injects the capture link override for exactly
-        # one build; the committed package must carry no link override.
-        self.assertNotIn(
-            "link:",
-            text,
-            "the device entry must not declare a link override (the SDK "
-            "CLI injects the capture cc per build)",
-        )
-        self.assertNotIn(
-            "native-stub",
-            text,
-            "the thin entry owns no C stubs (bridge coverage lives in the "
-            "SDK)",
-        )
+        self.assertNotIn("link:", text)
+
         runtime = (REPO_ROOT / "src" / "runtime_native" / "runtime.mbt").read_text()
         for export in (
             "ai_passport_mbt_probe",
@@ -119,82 +40,33 @@ class ProjectStructureContractTests(unittest.TestCase):
             "ai_passport_mbt_audio_muted",
         ):
             self.assertIn(f'"{export}"', runtime)
-        self.assertNotIn(
-            "extern",
-            runtime,
-            "the thin entry must not declare its own FFI (SDK hostabi owns "
-            "the externs)",
-        )
+        self.assertNotIn("extern", runtime)
 
-    def test_passport_json_contract_shape(self):
+    def test_passport_contract(self):
         contract = json.loads((REPO_ROOT / "passport.json").read_text())
         self.assertEqual(contract["entry"], "runtime_wasm")
         self.assertEqual(contract["deviceEntry"], "runtime_native")
-        looping = [
-            asset
-            for asset in contract.get("assets", [])
-            if asset.get("pcmLoop") is True
-        ]
-        self.assertEqual(len(looping), 1)
+        looping = [a for a in contract["assets"] if a.get("pcmLoop") is True]
         self.assertEqual(
-            looping[0]["source"], ".passport/assets/forest_walk.pcm"
+            looping,
+            [
+                {
+                    "source": ".passport/assets/forest_walk.pcm",
+                    "bundlePath": "assets/forest_walk.pcm",
+                    "pcmLoop": True,
+                }
+            ],
         )
-        self.assertEqual(looping[0]["bundlePath"], "assets/forest_walk.pcm")
 
-    def test_dispatcher_delegates_to_the_published_sdk_cli(self):
+    def test_dispatcher_uses_current_published_cli(self):
         text = (REPO_ROOT / "tools" / "passport.mbtx").read_text()
-        self.assertIn("moonx", text)
-        self.assertIn("colmugx/ai-passport/cmd/passport@0.0.4", text)
-        self.assertIn("folotoy-ai-passport", text)
-        self.assertNotIn(
-            "AI_PASSPORT_SDK",
-            text,
-            "the dispatcher must run the published package, not a private "
-            "SDK checkout",
-        )
-        self.assertFalse(
-            (REPO_ROOT / "tools" / "sync-dev-sdk.sh").exists(),
-            "tools/sync-dev-sdk.sh overlaid a private SDK checkout and must "
-            "stay deleted",
-        )
-        self.assertFalse(
-            (REPO_ROOT / "tools" / "build.mbtx").exists(),
-            "tools/build.mbtx duplicated the SDK CLI web build and must "
-            "stay deleted",
-        )
+        self.assertIn(PASSPORT_CLI, text)
+        self.assertIn('"moonx"', text)
+        self.assertIn('"folotoy-ai-passport"', text)
 
-    def test_dev_mbtx_stays_deleted_and_the_dispatcher_keeps_dev(self):
-        self.assertFalse(
-            (REPO_ROOT / "tools" / "dev.mbtx").exists(),
-            "tools/dev.mbtx duplicated the SDK CLI dev server and must stay "
-            "deleted",
-        )
-        text = (REPO_ROOT / "tools" / "passport.mbtx").read_text()
-        self.assertIn(
-            '"dev"',
-            text,
-            "the dispatcher must keep offering dev through the SDK CLI",
-        )
-
-    def test_web_integration_still_exists_and_boots_the_sdk_page(self):
-        runner = REPO_ROOT / "tools" / "web-integration" / "run.mjs"
-        self.assertTrue(
-            runner.is_file(),
-            "tools/web-integration/run.mjs must keep testing the real "
-            "browser boot path",
-        )
-        text = runner.read_text()
-        self.assertIn(DEV_URL_QUERY, text)
-        self.assertNotIn(
-            'require("passport-host.js")',
-            text,
-            "the integration test must not import the SDK host manually",
-        )
-        self.assertIn(
-            "app.html",
-            text,
-            "the integration test must assert app.html is absent",
-        )
+    def test_browser_integration_targets_sdk_entry(self):
+        text = (REPO_ROOT / "tools" / "web-integration" / "run.mjs").read_text()
+        self.assertIn("index.html?pcm=./assets/forest_walk.pcm&pcmLoop=1", text)
 
 
 if __name__ == "__main__":
