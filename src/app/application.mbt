@@ -1,9 +1,4 @@
 ///|
-/// The SDK application contract, implemented by delegation to the portable
-/// `App`: `update` is one `App::advance` frame tick with the Host facts,
-/// `button` latches one semantic edge, `render` draws and returns the
-/// logical frame view, and `audio_output` reports the desired output state
-/// (Forest Walk always has audio state, so never `None`).
 pub impl @application.Application for App with fn update(
   self : App,
   ctx : @application.FrameContext,
@@ -39,8 +34,7 @@ pub impl @application.Application for App with fn audio_output(self : App) -> @a
 }
 
 ///|
-/// The application entry the SDK Host adapters load: one Forest Walk `App`
-/// behind the application contract.
+/// The application entry the CLI-generated Host adapters load.
 pub fn passport_main() -> &@application.Application {
   App::new()
 }
