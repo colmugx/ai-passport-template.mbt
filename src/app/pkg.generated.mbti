@@ -2,6 +2,7 @@
 package "colmugx/ai-passport-template/app"
 
 import {
+  "colmugx/ai-passport/application",
   "colmugx/ai-passport/graphics",
   "colmugx/ai-passport/input",
 }
@@ -21,6 +22,8 @@ pub fn loop_position_us(Int64, Int64) -> Int64
 
 pub fn musical_eighths(Int64, Int) -> Int
 
+pub fn passport_main() -> &@application.Application
+
 // Errors
 
 // Types and methods
@@ -37,6 +40,7 @@ pub fn App::new() -> Self
 pub fn App::scroll(Self) -> Int
 pub fn App::volume(Self) -> Int
 pub fn App::walker_frame(Self) -> Int
+pub impl @application.Application for App
 
 pub struct BeatClock {
   // private fields
