@@ -17,5 +17,5 @@ description = "Starter application template for the FoloToy AI Passport wearable
 source = "src"
 
 import {
-  "colmugx/ai-passport@0.0.6",
+  "colmugx/ai-passport@0.1.0",
 }

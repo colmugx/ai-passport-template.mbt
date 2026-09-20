@@ -7,6 +7,5 @@ _build/
 
 # Generated build workspace (web/device bundles)
 /.passport/
-
-# CLI-generated Host entry adapters (passport build output)
 passport-generated/
+/src/sounds/generated.mbt

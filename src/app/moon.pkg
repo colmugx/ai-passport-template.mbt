@@ -1,6 +1,8 @@
 import {
   "colmugx/ai-passport/application",
+  "colmugx/ai-passport/audio",
   "colmugx/ai-passport/graphics",
   "colmugx/ai-passport/input",
   "colmugx/ai-passport-template/forest_walk",
+  "colmugx/ai-passport-template/sounds" @sounds,
 }

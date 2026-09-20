@@ -5,7 +5,7 @@ pub impl @application.Application for App with fn update(
 ) -> Unit {
   self.advance(
     ctx.now_us,
-    playback_position_us?=ctx.playback_position_us,
+    playback_position_us?=self.music_position_us(),
     presentation_lead_us=ctx.presentation_lead_us,
   )
 }

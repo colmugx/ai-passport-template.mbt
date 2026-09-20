@@ -1,0 +1,8 @@
+entry = "app"
+
+[[sounds]]
+name = "forest_walk"
+source = "assets/forest_walk.pcm"
+
+[hostDependencies."folotoy-ai-passport"]
+path = "external/folotoy-ai-passport"

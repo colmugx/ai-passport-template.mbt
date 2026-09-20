@@ -1,0 +1,14 @@
+import {
+  "colmugx/ai-passport/audio",
+}
+
+rule(
+  name: "passport-sounds",
+  command: "moonx colmugx/ai-passport/cmd/passport@0.1.0 generate-sounds $input $output",
+)
+
+dev_build(
+  rule: "passport-sounds",
+  input: "../../passport.toml",
+  output: "generated.mbt",
+)

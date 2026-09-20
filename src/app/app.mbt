@@ -3,12 +3,12 @@
 /// application state, valid on every host unchanged.
 ///
 /// It owns the SDK logical `Canvas`, the Forest Walk `State`, the fixed-step
-/// 30 Hz simulation clock, the musical-position source (audible playback
-/// position with loop wrap and presentation lead, or the monotonic fallback
-/// beat clock while audio is unavailable) and the application-level
+/// 30 Hz simulation clock, the looping Forest Walk `Playback`, its musical
+/// position with presentation lead (or the monotonic fallback beat clock
+/// while playback is unavailable), and the application-level
 /// volume/mute controls. It owns no platform transport: hosts feed it host
-/// facts (`now_us`, `playback_position_us`, `presentation_lead_us`,
-/// battery) and present `frame_view()` through their own display sink.
+/// facts (`now_us`, `presentation_lead_us`, battery) and present
+/// `frame_view()` through their own display sink.
 ///
 /// The dependency direction is the Project Contract: this package depends
 /// only on the ai-passport SDK and `forest_walk` —
@@ -20,6 +20,7 @@ pub struct App {
   priv beat : BeatClock
   priv controls : Controls
   priv input : @input.InputState
+  priv mut music : @audio.Playback?
   priv mut last_now_us : Int64?
 }
 
@@ -35,7 +36,30 @@ pub fn App::new() -> App {
     beat: BeatClock::new(),
     controls: Controls::new(),
     input: @input.InputState::new(),
+    music: None,
     last_now_us: None,
+  }
+}
+
+///|
+/// Starts the canonical looping Sound on the first Host-driven update and
+/// returns that Playback's position. Slot exhaustion or an unavailable audio
+/// backend leaves the visual beat clock active and retries on the next frame.
+/// A handle that later becomes invalid is discarded so it can be reacquired.
+fn App::music_position_us(self : App) -> Int64? {
+  if self.music is None {
+    self.music = @audio.play(@sounds.ForestWalk, looping=true)
+  }
+  match self.music {
+    Some(playback) =>
+      match @audio.position(playback) {
+        Some(position) => Some(position)
+        None => {
+          self.music = None
+          None
+        }
+      }
+    None => None
   }
 }
 
@@ -65,16 +89,14 @@ pub fn App::input(self : App, button : @input.Button, pressed : Bool) -> Unit {
 /// this at any rate — the application alone decides when logical 30 Hz
 /// simulation steps occur (catch-up is bounded).
 ///
-/// `playback_position_us` is a host fact: the audible musical position.
-/// AVAILABILITY is the Option itself: `Some(position)` is live PCM playback
-/// — including exactly `Some(0)` at the track start and at a device PCM
-/// loop boundary — while `None` means playback is unavailable (locked,
-/// failed or absent) and the monotonic fallback beat clock keeps the
-/// animation moving at tempo. A negative position, if a host ever emits
-/// one, is treated as unavailable for safety. On hosts whose live position
-/// is monotonic across loops (the web host), it is wrapped at the canonical
-/// PCM duration here, giving every host the same loop-relative application
-/// timeline.
+/// `playback_position_us` is the position of this App's Forest Walk Playback.
+/// This optional argument is also the deterministic unit-test seam used by
+/// the package's black-box tests. `Some(position)` is live playback — including
+/// exactly `Some(0)` at the track start or loop boundary — while `None` means
+/// playback is unavailable and the monotonic fallback beat clock keeps the
+/// animation moving at tempo. A negative position is treated as unavailable
+/// for safety. Position is wrapped at the canonical PCM duration here, giving
+/// every Host the same loop-relative application timeline.
 ///
 /// `presentation_lead_us` is a generic host calibration fact added to the
 /// loop-relative position before deriving the musical eighth: the device
