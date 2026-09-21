@@ -1,0 +1,194 @@
+name: Main deliverables
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  AI_PASSPORT_VERSION: "0.1.4"
+  DEVICE_HOST: "folotoy/ai-passport"
+  DEVICE_HOST_ID: "folotoy-ai-passport"
+  APP_PARTITION_SIZE: "3670016"
+
+jobs:
+  web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Install MoonBit
+        run: |
+          set -euo pipefail
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve published SDK
+        run: |
+          set -euo pipefail
+          grep -q "colmugx/ai-passport@${AI_PASSPORT_VERSION}" moon.mod
+          moon update
+          moon check --target wasm
+          test -f .mooncakes/colmugx/ai-passport/hosts/web/index.html
+
+      - name: Build Web host
+        run: |
+          set -euo pipefail
+          moonx "colmugx/ai-passport/cmd/passport@${AI_PASSPORT_VERSION}" build --host web
+          test -f .passport/web/index.html
+          test -f .passport/web/app.wasm
+          test -f .passport/web/passport-host.js
+          test -f .passport/web/sound-worklet.js
+          test -s .passport/web/sounds.bank
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .passport/web
+
+  deploy-pages:
+    name: Deploy GitHub Pages
+    needs: web
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy Web build
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  device:
+    name: Build FoloToy AI Passport firmware
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    container:
+      image: espressif/idf:v5.5.3
+
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+
+      - name: Install MoonBit
+        run: |
+          set -eu
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+          "$HOME/.moon/bin/moon" version --all
+
+      - name: Resolve published SDK
+        run: |
+          set -eu
+          grep -q "colmugx/ai-passport@${AI_PASSPORT_VERSION}" moon.mod
+          moon update
+          moon check --target native
+          test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
+
+      - name: Build firmware and generate report
+        shell: bash
+        run: |
+          set -euo pipefail
+          . /opt/esp/idf/export.sh
+
+          build_dir=".passport/${DEVICE_HOST_ID}/build"
+          firmware="${build_dir}/ai_passport_app.bin"
+          artifact_dir=".passport/device-artifact"
+          report="${artifact_dir}/firmware-report.md"
+
+          moonx "colmugx/ai-passport/cmd/passport@${AI_PASSPORT_VERSION}" build --host "${DEVICE_HOST_ID}" | tee /tmp/device-build.log
+
+          test -f "${firmware}"
+          grep -q "${DEVICE_HOST_ID} dependency:" /tmp/device-build.log
+
+          size="$(stat -c %s "${firmware}")"
+          test "${size}" -gt 0
+          test "${size}" -le "${APP_PARTITION_SIZE}"
+
+          margin="$(grep -oE 'app partition margin: [0-9]+ bytes' /tmp/device-build.log | head -n1 || true)"
+          test -n "${margin}"
+
+          dependency="$(grep -m1 "passport: ${DEVICE_HOST_ID} dependency:" /tmp/device-build.log | sed 's/^.*passport: //')"
+          sha256="$(sha256sum "${firmware}" | cut -d' ' -f1)"
+
+          esptool.py image_info "${firmware}" | tee /tmp/esptool-image-info.txt
+
+          mkdir -p "${artifact_dir}"
+          cp "${firmware}" "${artifact_dir}/ai_passport_app.bin"
+
+          {
+            echo "# AI Passport firmware report"
+            echo
+            echo "## Build identity"
+            echo
+            echo "- Host: \`${DEVICE_HOST}\`"
+            echo "- Passport host ID: \`${DEVICE_HOST_ID}\`"
+            echo "- Chip family: \`ESP32-C3\`"
+            echo "- SDK / CLI: \`colmugx/ai-passport@${AI_PASSPORT_VERSION}\`"
+            echo "- Repository: \`${GITHUB_REPOSITORY}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- ESP-IDF container: \`espressif/idf:v5.5.3\`"
+            echo "- Firmware: \`ai_passport_app.bin\`"
+            echo "- Firmware size: \`${size} bytes\`"
+            echo "- App partition size: \`${APP_PARTITION_SIZE} bytes (0x380000)\`"
+            echo "- App partition margin: \`${margin}\`"
+            echo "- SHA-256: \`${sha256}\`"
+            echo "- Host dependency: \`${dependency}\`"
+            echo "- Application image offset: \`0x10000\`"
+            echo
+            echo "> The application image is built for the \`${DEVICE_HOST}\` host. App-only flashing at \`0x10000\` assumes the device already has a compatible bootloader and partition table."
+            echo
+            echo "## Toolchain"
+            echo
+            echo '\`\`\`text'
+            idf.py --version
+            esptool.py version
+            echo '\`\`\`'
+            echo
+            echo "## ESP image inspection"
+            echo
+            echo '\`\`\`text'
+            cat /tmp/esptool-image-info.txt
+            echo '\`\`\`'
+            echo
+            echo "## Build proof"
+            echo
+            echo '\`\`\`text'
+            grep -E "${DEVICE_HOST_ID} dependency:|Creating esp32c3 image|Successfully created esp32c3 image|firmware built at|app partition margin:|workspace:" /tmp/device-build.log
+            echo '\`\`\`'
+          } > "${report}"
+
+          cat "${report}" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: folotoy-ai-passport-firmware-${{ github.sha }}
+          path: .passport/device-artifact/
+          if-no-files-found: error
