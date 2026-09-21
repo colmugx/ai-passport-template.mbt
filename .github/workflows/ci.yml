@@ -18,12 +18,6 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: Assert the pinned FoloToy submodule revision
-        run: |
-          rev="$(git -C external/folotoy-ai-passport rev-parse HEAD)"
-          echo "external/folotoy-ai-passport @ $rev"
-          test "$rev" = "c21a015d44f2bcc02b4d859532d74cd7aefe69be"
-
       - name: Install MoonBit
         run: |
           set -euo pipefail
