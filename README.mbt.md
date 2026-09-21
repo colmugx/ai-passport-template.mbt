@@ -19,7 +19,7 @@ moon test
 Run the application in the Web Host:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.1.3 dev
+moonx colmugx/ai-passport/cmd/passport@0.1.4 dev
 ```
 
 Then open:
@@ -31,8 +31,8 @@ http://127.0.0.1:8000/index.html
 The same MoonBit application can be built for the physical FoloToy AI Passport Host:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.1.3 doctor --host folotoy-ai-passport
-moonx colmugx/ai-passport/cmd/passport@0.1.3 build --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.1.4 doctor --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.1.4 build --host folotoy-ai-passport
 ```
 
 The build creates the device workspace under:
@@ -163,7 +163,7 @@ headerless
 ```moonbit
 rule(
   name: "passport-sounds",
-  command: "moonx colmugx/ai-passport/cmd/passport@0.1.3 generate-sounds $input $output",
+  command: "moonx colmugx/ai-passport/cmd/passport@0.1.4 generate-sounds $input $output",
 )
 
 dev_build(
@@ -232,8 +232,8 @@ If a project does not provide that override, the Passport CLI can resolve its pi
 To create a Web bundle without starting the development server:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.1.3 doctor --host web
-moonx colmugx/ai-passport/cmd/passport@0.1.3 build --host web
+moonx colmugx/ai-passport/cmd/passport@0.1.4 doctor --host web
+moonx colmugx/ai-passport/cmd/passport@0.1.4 build --host web
 ```
 
 The generated Web workspace contains the application Wasm, Host files, sound bank, and declared assets.

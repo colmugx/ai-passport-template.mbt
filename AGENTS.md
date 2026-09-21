@@ -275,16 +275,16 @@ git diff --exit-code
 Web:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.1.3 doctor --host web
-moonx colmugx/ai-passport/cmd/passport@0.1.3 build --host web
-moonx colmugx/ai-passport/cmd/passport@0.1.3 dev --host web
+moonx colmugx/ai-passport/cmd/passport@0.1.4 doctor --host web
+moonx colmugx/ai-passport/cmd/passport@0.1.4 build --host web
+moonx colmugx/ai-passport/cmd/passport@0.1.4 dev --host web
 ```
 
 FoloToy:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.1.3 doctor --host folotoy-ai-passport
-moonx colmugx/ai-passport/cmd/passport@0.1.3 build --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.1.4 doctor --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.1.4 build --host folotoy-ai-passport
 ```
 
 The build command does not constitute a successful flash or physical-device test.
