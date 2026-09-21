@@ -482,7 +482,7 @@ version = "0.0.1"
 source = "src"
 
 import {
-  "colmugx/ai-passport@0.1.2",
+  "colmugx/ai-passport@0.1.3",
 }
 ```
 
@@ -818,7 +818,7 @@ import {
 
 rule(
   name: "passport-sounds",
-  command: "moonx colmugx/ai-passport/cmd/passport@0.1.2 generate-sounds $input $output",
+  command: "moonx colmugx/ai-passport/cmd/passport@0.1.3 generate-sounds $input $output",
 )
 
 dev_build(
@@ -961,11 +961,11 @@ Validate the portable application first through Web.
 
 Use the same CLI version as the SDK dependency.
 
-For v0.1.2:
+For v0.1.3:
 
 ```sh id="web-build"
-moonx colmugx/ai-passport/cmd/passport@0.1.2 doctor --host web
-moonx colmugx/ai-passport/cmd/passport@0.1.2 build --host web
+moonx colmugx/ai-passport/cmd/passport@0.1.3 doctor --host web
+moonx colmugx/ai-passport/cmd/passport@0.1.3 build --host web
 ```
 
 Generated Web output:
@@ -979,7 +979,7 @@ It contains the compiled MoonBit application and SDK-owned Host runtime.
 For interactive development:
 
 ```sh id="web-dev"
-moonx colmugx/ai-passport/cmd/passport@0.1.2 dev --host web
+moonx colmugx/ai-passport/cmd/passport@0.1.3 dev --host web
 ```
 
 Exercise:
@@ -1005,7 +1005,7 @@ Do not edit `passport-host.js` to fix application behavior.
 Before building:
 
 ```sh id="device-doctor"
-moonx colmugx/ai-passport/cmd/passport@0.1.2 doctor --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.1.3 doctor --host folotoy-ai-passport
 ```
 
 Treat `doctor` as authoritative for missing toolchain/project requirements.
@@ -1027,7 +1027,7 @@ factory app partition:
 Build:
 
 ```sh id="device-build"
-moonx colmugx/ai-passport/cmd/passport@0.1.2 build --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.1.3 build --host folotoy-ai-passport
 ```
 
 The CLI creates:

@@ -5,7 +5,7 @@ import {
 
 rule(
   name: "passport-sounds",
-  command: "moonx colmugx/ai-passport/cmd/passport@0.1.2 generate-sounds $input $output",
+  command: "moonx colmugx/ai-passport/cmd/passport@0.1.3 generate-sounds $input $output",
 )
 
 dev_build(

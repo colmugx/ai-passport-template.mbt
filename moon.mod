@@ -17,5 +17,5 @@ supported_targets = "+native+wasm"
 description = "Starter application template for the FoloToy AI Passport wearable"
 
 import {
-  "colmugx/ai-passport@0.1.2",
+  "colmugx/ai-passport@0.1.3",
 }
