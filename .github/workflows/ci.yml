@@ -13,7 +13,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
           persist-credentials: false
@@ -54,8 +54,8 @@ jobs:
           test -f .passport/web/app.wasm
           test -f .passport/web/index.html
           test -f .passport/web/passport-host.js
-          test -f .passport/web/pcm-worklet.js
-          cmp assets/forest_walk.pcm .passport/web/assets/forest_walk.pcm
+          test -f .passport/web/sound-worklet.js
+          test -s .passport/web/sounds.bank
 
       - name: Formatting
         run: |
