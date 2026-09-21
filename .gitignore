@@ -1,7 +1,6 @@
 _build/
 .DS_Store
 .mooncakes/
-.agents
 /web/dist/
 /moon.work
 

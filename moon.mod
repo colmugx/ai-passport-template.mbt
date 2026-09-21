@@ -12,9 +12,9 @@ keywords = [ "moonbit", "template", "folotoy" ]
 
 preferred_target = "native"
 
-description = "Starter application template for the FoloToy AI Passport wearable"
+supported_targets = "+native+wasm"
 
-source = "src"
+description = "Starter application template for the FoloToy AI Passport wearable"
 
 import {
   "colmugx/ai-passport@0.1.1",

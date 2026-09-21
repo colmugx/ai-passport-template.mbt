@@ -9,6 +9,6 @@ rule(
 
 dev_build(
   rule: "passport-sounds",
-  input: "../../passport.toml",
+  input: "../passport.toml",
   output: "generated.mbt",
 )
