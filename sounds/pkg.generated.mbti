@@ -1,0 +1,21 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/ai-passport-template/sounds"
+
+import {
+  "colmugx/ai-passport/audio",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Sound {
+  ForestWalk
+} derive(Eq, @debug.Debug)
+pub impl @audio.Sound for Sound
+
+// Type aliases
+
+// Traits
