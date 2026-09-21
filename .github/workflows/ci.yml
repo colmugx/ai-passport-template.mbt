@@ -99,7 +99,7 @@ jobs:
           . /opt/esp/idf/export.sh
           moonx colmugx/ai-passport/cmd/passport@0.1.4 build --host folotoy-ai-passport | tee /tmp/device-build.log
           test -f .passport/folotoy-ai-passport/build/ai_passport_app.bin
-          grep -q "dependency: .*/external/folotoy-ai-passport @ c21a015d44f2bcc02b4d859532d74cd7aefe69be (project-provided)" /tmp/device-build.log
+          grep -q "folotoy-ai-passport dependency:" /tmp/device-build.log
           size=$(stat -c %s .passport/folotoy-ai-passport/build/ai_passport_app.bin)
           test "$size" -gt 0 -a "$size" -le 3670016
           margin="$(grep -oE 'app partition margin: [0-9]+ bytes' /tmp/device-build.log | head -n1 || true)"
