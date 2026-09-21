@@ -1,4 +1,14 @@
 ///|
+/// Explicit promotion of the Application trait methods below, replacing the
+/// deprecated implicit impl-as-method promotion (warning E79).
+pub extend App with @application.Application::{
+  audio_output,
+  render,
+  button,
+  update,
+}
+
+///|
 pub impl @application.Application for App with fn update(
   self : App,
   ctx : @application.FrameContext,

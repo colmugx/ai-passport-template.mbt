@@ -1,6 +1,6 @@
 ///|
 test "draw runs clean on a small canvas, the logical canvas and a fairy-sized canvas" {
-  let state = State::new()
+  let state = @forest_walk.State::new()
   state.draw(
     canvas=@graphics.Canvas::new(width=64, height=80),
     battery_percent=None,
@@ -15,7 +15,9 @@ test "draw runs clean on a small canvas, the logical canvas and a fairy-sized ca
 
 ///|
 test "draw handles continuously walking states" {
-  let moving = State::new().update(musical_eighths=1).update(musical_eighths=2)
+  let moving = @forest_walk.State::new()
+    .update(musical_eighths=1)
+    .update(musical_eighths=2)
   assert_eq(moving.scroll(), 1)
   moving.draw(canvas=@graphics.Canvas::logical(), battery_percent=Some(82))
   moving.draw(
@@ -26,7 +28,7 @@ test "draw handles continuously walking states" {
 
 ///|
 test "battery HUD changes only the top-right pixels for known and unknown values" {
-  let state = State::new()
+  let state = @forest_walk.State::new()
   let known = @graphics.Canvas::logical()
   let unknown = @graphics.Canvas::logical()
   state.draw(canvas=known, battery_percent=Some(82))
@@ -50,7 +52,7 @@ test "battery HUD changes only the top-right pixels for known and unknown values
 
 ///|
 test "battery HUD anchors exactly four logical pixels from the right edge" {
-  let state = State::new()
+  let state = @forest_walk.State::new()
   let with_hud = @graphics.Canvas::logical()
   let without_hud = @graphics.Canvas::logical()
   state.draw(canvas=with_hud, battery_percent=Some(82))
@@ -80,7 +82,7 @@ test "battery HUD anchors exactly four logical pixels from the right edge" {
 
 ///|
 test "battery HUD leaves the top-right four by four corner untouched" {
-  let state = State::new()
+  let state = @forest_walk.State::new()
   let without_hud = @graphics.Canvas::logical()
   let with_hud = @graphics.Canvas::logical()
   state.draw(canvas=without_hud, battery_percent=None)

@@ -6,8 +6,17 @@ pub(all) enum Sound {
 } derive(Eq, Debug)
 
 ///|
+pub extend Sound with Eq::{not_equal, equal}
+
+///|
+pub extend Sound with @debug.Debug::{to_repr}
+
+///|
 pub impl @audio.Sound for Sound with fn resource_id(self : Sound) -> UInt {
   match self {
     ForestWalk => 0U
   }
 }
+
+///|
+pub extend Sound with @audio.Sound::{resource_id}

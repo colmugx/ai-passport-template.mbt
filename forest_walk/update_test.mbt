@@ -1,6 +1,6 @@
 ///|
 test "ambient scene advances by nine sixteenth-pixels on every update" {
-  let mut state = State::new()
+  let mut state = @forest_walk.State::new()
   assert_eq(state.scroll(), 0)
   assert_eq(state.walker_frame(), 0)
   for frame in 1..<31 {
@@ -14,7 +14,7 @@ test "ambient scene advances by nine sixteenth-pixels on every update" {
 
 ///|
 test "fairy pose spreads six frames across the eight-eighth 4/4 bar" {
-  let mut state = State::new()
+  let mut state = @forest_walk.State::new()
   for eighth in 0..<24 {
     state = state.update(musical_eighths=eighth)
     assert_eq(state.walker_frame(), eighth * 3 / 4 % 6)
@@ -32,7 +32,7 @@ test "fairy pose spreads six frames across the eight-eighth 4/4 bar" {
 
 ///|
 test "walking poses never depend on scroll or frame history" {
-  let state = State::new()
+  let state = @forest_walk.State::new()
   let slow = state.update(musical_eighths=4)
   let fast = state
     .update(musical_eighths=4)
@@ -47,7 +47,7 @@ test "walking poses never depend on scroll or frame history" {
 
 ///|
 test "update returns a new snapshot without mutating the receiver" {
-  let state = State::new()
+  let state = @forest_walk.State::new()
   let next = state.update(musical_eighths=2)
   assert_eq(state.frame(), 0)
   assert_eq(state.scroll(), 0)
@@ -57,7 +57,10 @@ test "update returns a new snapshot without mutating the receiver" {
   // sixteenth-pixel remainder is carried, not lost.
   assert_eq(next.scroll(), 0)
   assert_eq(
-    State::new().update(musical_eighths=0).update(musical_eighths=0).scroll(),
+    @forest_walk.State::new()
+    .update(musical_eighths=0)
+    .update(musical_eighths=0)
+    .scroll(),
     1,
   )
   assert_eq(next.walker_frame(), 1)

@@ -31,13 +31,17 @@ pub struct App {
   // private fields
 }
 pub fn App::advance(Self, Int64, playback_position_us? : Int64, presentation_lead_us? : Int64) -> Unit
+pub fn App::audio_output(Self) -> @application.AudioOutput?
+pub fn App::button(Self, @input.Button, Bool) -> Unit
 pub fn App::draw(Self, battery_percent~ : Int?) -> Unit
 pub fn App::frame(Self) -> Int
 pub fn App::frame_view(Self) -> @graphics.FrameView
 pub fn App::input(Self, @input.Button, Bool) -> Unit
 pub fn App::muted(Self) -> Bool
 pub fn App::new() -> Self
+pub fn App::render(Self, Int?) -> @graphics.FrameView
 pub fn App::scroll(Self) -> Int
+pub fn App::update(Self, @application.FrameContext) -> Unit
 pub fn App::volume(Self) -> Int
 pub fn App::walker_frame(Self) -> Int
 pub impl @application.Application for App

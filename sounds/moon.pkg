@@ -1,10 +1,11 @@
 import {
   "colmugx/ai-passport/audio",
+  "moonbitlang/core/debug",
 }
 
 rule(
   name: "passport-sounds",
-  command: "moonx colmugx/ai-passport/cmd/passport@0.1.0 generate-sounds $input $output",
+  command: "moonx colmugx/ai-passport/cmd/passport@0.1.2 generate-sounds $input $output",
 )
 
 dev_build(
