@@ -21,6 +21,63 @@ fn battery_label(battery_percent : Int?) -> String {
   }
 }
 
+fn design_glyph(ch : Char) -> Int {
+  match ch {
+    '0' => 0x69996
+    '1' => 0x4C44E
+    '2' => 0x6934F
+    '3' => 0xE161E
+    '4' => 0x99F11
+    '5' => 0xF8E1E
+    '6' => 0x68E96
+    '7' => 0xF1111
+    '8' => 0x69696
+    '9' => 0x69716
+    '-' => 0x00F00
+    '%' => 0x92481
+    _ => 0
+  }
+}
+
+///|
+fn design_text_width(text : String) -> Int {
+  let mut count = 0
+  for _ in text {
+    count += 1
+  }
+  if count == 0 {
+    0
+  } else {
+    (count - 1) * 5 + 4
+  }
+}
+
+///|
+fn draw_design_text(
+  canvas : @graphics.Canvas,
+  text : String,
+  x~ : Int,
+  y~ : Int,
+  color : @core.Color,
+) -> Unit {
+  let mut cx = x
+  for ch in text {
+    let pattern = design_glyph(ch)
+    if pattern != 0 {
+      for ry in 0..<5 {
+        let row = (pattern >> ((4 - ry) * 4)) & 0xF
+        for rx in 0..<4 {
+          if (row & (1 << (3 - rx))) != 0 {
+            draw_design_pixel(canvas, cx + rx, y + ry, color)
+          }
+        }
+      }
+    }
+    cx += 5
+  }
+}
+
+///|
 ///|
 /// Draws the authored three-layer parallax scene, back to front:
 ///
@@ -72,22 +129,12 @@ pub fn State::draw(
   let battery_text = battery_label(battery_percent)
   // Four logical pixels of right margin keep the text clear of the four
   // 4x4 rounded-corner occlusion regions while y=4 clears the top strip.
-  let text_width = @graphics.text_width(text=battery_text)
-  let text_canvas = @graphics.Canvas::new(width=text_width, height=6)
   let hud_color = @core.Color::rgb(r=31, g=51, b=53)
-  text_canvas.text(text=battery_text, x=0, y=0, color=hud_color)
-  let row : FixedArray[Int] = FixedArray::make(text_width, 0)
-  for y in 0..<5 {
-    let _ = text_canvas.frame_view().copy_rgb565_row(y~, out=row)
-    for x in 0..<text_width {
-      if row[x] == hud_color.to_rgb565() {
-        draw_design_pixel(
-          canvas,
-          120 - text_width - 2 + x,
-          2 + y,
-          hud_color,
-        )
-      }
-    }
-  }
+  draw_design_text(
+    canvas,
+    battery_text,
+    x=(120 - design_text_width(battery_text) - 2).max(0),
+    y=2,
+    hud_color,
+  )
 }
