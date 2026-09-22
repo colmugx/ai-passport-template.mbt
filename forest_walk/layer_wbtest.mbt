@@ -146,9 +146,9 @@ test "scene renders every layer at its own scroll offset" {
   // verifies that layer's scroll offset.
   let mut world_verified = 0
   let mut foreground_verified = 0
-  for y in 12..<(canvas.height() - 2) {
+  for y in 16..<(canvas.height() - 2) {
     assert_eq(canvas.frame_view().copy_rgb565_row(y~, out=row), canvas.width())
-    for x in 60..<(canvas.width() - 2) {
+    for x in ((FAIRY_X + 28) * 2 + 4)..<(canvas.width() - 2) {
       let fg_x = ping_pong_x(
         x / foreground.scale + foreground_offset,
         foreground.width,
