@@ -5,6 +5,7 @@ pub extend App with @application.Application::{
   audio_output,
   render,
   button,
+  button_event,
   update,
 }
 
