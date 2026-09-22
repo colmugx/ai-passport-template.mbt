@@ -19,19 +19,16 @@ fn draw_indexed_layer_reference(
   layer~ : IndexedLayer,
   scroll_x~ : Int,
 ) -> Unit {
-  let columns = canvas.width().min(layer.width * layer.scale)
-  let rows = canvas.height().min(layer.height * layer.scale)
+  let scale = layer.scale
+  let columns = (canvas.width() / scale).min(layer.width)
+  let rows = (canvas.height() / scale).min(layer.height)
   let palette = layer.palette
   let indices = layer.indices
   let transparent_index = layer.transparent_index
   for y in 0..<rows {
-    let source_y = y / layer.scale
     for x in 0..<columns {
-      let source_x = ping_pong_x(
-        floor_div(x + scroll_x, layer.scale),
-        layer.width,
-      )
-      let index = indices[source_y * layer.width + source_x].to_int()
+      let source_x = ping_pong_x(x + scroll_x, layer.width)
+      let index = indices[y * layer.width + source_x].to_int()
       let skip = match transparent_index {
         Some(t) => index == t
         None => false
@@ -39,7 +36,13 @@ fn draw_indexed_layer_reference(
       if skip {
         continue
       }
-      canvas.pixel(x~, y~, color=palette[index])
+      let px = x * scale
+      let py = y * scale
+      for dy in 0..<scale {
+        for dx in 0..<scale {
+          canvas.pixel(x=px + dx, y=py + dy, color=palette[index])
+        }
+      }
     }
   }
 }
@@ -65,23 +68,33 @@ fn draw_state_reference(
     scroll_x=scroll,
   )
   let sheet = state.walker_sheet
-  canvas.sprite(
-    sheet~,
-    frame=state.walker_frame,
-    x=FAIRY_X,
-    y=(FAIRY_BASELINE_Y - sheet.frame_height()).max(0),
-  )
+  let frame_base = state.walker_frame * sheet.frame_width * sheet.frame_height
+  let fairy_y = (FAIRY_BASELINE_Y - sheet.frame_height).max(0)
+  for sy in 0..<sheet.frame_height {
+    for sx in 0..<sheet.frame_width {
+      let index = sheet.indices[
+        frame_base + sy * sheet.frame_width + sx
+      ].to_int()
+      match sheet.palette[index] {
+        Some(color) =>
+          draw_design_pixel(canvas, FAIRY_X + sx, fairy_y + sy, color)
+        None => ()
+      }
+    }
+  }
   draw_indexed_layer_reference(
     canvas~,
     layer=state.foreground_layer,
     scroll_x=foreground_scroll_offset(scroll),
   )
   let battery_text = battery_label(battery_percent)
-  canvas.text(
-    text=battery_text,
-    x=(canvas.width() - @graphics.text_width(text=battery_text) - 4).max(0),
-    y=4,
-    color=@core.Color::rgb(r=31, g=51, b=53),
+  let hud_color = @core.Color::rgb(r=31, g=51, b=53)
+  draw_design_text(
+    canvas,
+    battery_text,
+    x=(120 - design_text_width(battery_text) - 2).max(0),
+    y=2,
+    hud_color,
   )
 }
 
