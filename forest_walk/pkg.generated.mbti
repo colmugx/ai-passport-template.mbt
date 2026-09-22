@@ -15,7 +15,7 @@ pub const AUDIO_TOTAL_SAMPLES : Int = 1222400
 
 pub const MUSIC_DOTTED_QUARTER_BPM : Int = 76
 
-pub fn build_fairy_walk_right_sheet() -> @graphics.SpriteSheet
+pub fn build_fairy_walk_right_sheet() -> IndexedSpriteSheet
 
 pub fn build_forest_far_layer() -> IndexedLayer
 
@@ -32,6 +32,15 @@ pub fn ping_pong_x(Int, Int) -> Int
 // Errors
 
 // Types and methods
+pub(all) struct IndexedSpriteSheet {
+  frame_width : Int
+  frame_height : Int
+  frame_count : Int
+  palette : FixedArray[@core.Color?]
+  indices : FixedArray[Byte]
+}
+pub fn IndexedSpriteSheet::to_sprite_sheet(Self) -> @graphics.SpriteSheet
+
 pub(all) struct IndexedLayer {
   width : Int
   height : Int
