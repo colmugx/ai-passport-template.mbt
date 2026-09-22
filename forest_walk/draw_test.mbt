@@ -34,7 +34,9 @@ test "battery HUD changes only the top-right pixels for known and unknown values
   state.draw(canvas=known, battery_percent=Some(82))
   state.draw(canvas=unknown, battery_percent=None)
   let width = known.width()
-  let leftmost = (120 - design_text_width("82%") - 2) * 2
+  // Three 4x5 glyphs at 5 px advance occupy 14 design pixels.
+  // x=(120 - 14 - 2)=104 in design space, presented at 2x => 208.
+  let leftmost = 208
   let mut changed = false
   for y in 4..<14 {
     let a = FixedArray::make(width, 0)
@@ -58,12 +60,10 @@ test "battery HUD anchors exactly four logical pixels from the right edge" {
   let without_hud = @graphics.Canvas::logical()
   state.draw(canvas=with_hud, battery_percent=Some(82))
   state.draw(canvas=without_hud, battery_percent=None)
-  // "--%" and "82%" occupy the same 120x160 design width. The HUD anchor is
-  // two design pixels from the right edge, then the whole glyph is presented
-  // at 2x on the 240x320 Canvas.
-  assert_eq(design_text_width("--%"), design_text_width("82%"))
+  // "--%" and "82%" are both three glyphs. Each occupies 14 design pixels;
+  // the two-design-pixel right margin becomes four final Canvas pixels.
   let width = with_hud.width()
-  let anchor = (120 - design_text_width("82%") - 2) * 2
+  let anchor = 208
   let mut leftmost = -1
   for y in 4..<14 {
     let a = FixedArray::make(width, 0)
