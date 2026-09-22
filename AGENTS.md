@@ -20,25 +20,23 @@ Get-Command moon -ErrorAction SilentlyContinue
 moon version --all
 ```
 
-If `moon` is already available, do not reinstall the toolchain. Continue with the project.
+If `moon` is already available, do not reinstall the toolchain.
 
-## Install MoonBit when missing
+If it is missing, install the official toolchain.
 
-Detect the user's operating system and use the appropriate official installer.
-
-### Linux and macOS
+Linux and macOS:
 
 ```sh
 curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
 ```
 
-### Windows PowerShell
+Windows PowerShell:
 
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 ```
 
-Do not ask the user to install MoonBit manually when the environment allows the installer command to be executed directly.
+If the user is in mainland China, the environment is known to use CN network access, or the `.com` installer endpoint fails because of regional access, replace `cli.moonbitlang.com` with `cli.moonbitlang.cn`.
 
 After installation, verify:
 
@@ -46,41 +44,9 @@ After installation, verify:
 moon version --all
 ```
 
-If installation succeeds but the current shell still cannot find `moon`, refresh the shell environment or update `PATH` as instructed by the installer, then verify again. Do not repeatedly reinstall MoonBit to solve a stale `PATH`.
+If installation succeeds but the current shell cannot find `moon`, refresh the shell environment or update `PATH` as instructed by the installer. Do not repeatedly reinstall MoonBit to solve a stale `PATH`.
 
-### China network fallback
-
-If the user is in mainland China, the execution environment is known to use CN network access, or the `.com` installer endpoint fails because of regional network access, replace:
-
-```text
-cli.moonbitlang.com
-```
-
-with:
-
-```text
-cli.moonbitlang.cn
-```
-
-Linux and macOS:
-
-```sh
-curl -fsSL https://cli.moonbitlang.cn/install/unix.sh | bash
-```
-
-Windows PowerShell:
-
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.cn/install/powershell.ps1 | iex
-```
-
-After installing through either endpoint, verify the actual installed toolchain rather than assuming installation succeeded:
-
-```sh
-moon version --all
-```
-
-Do not continue to `moon update`, `moon check`, `moon test`, `moonx`, Web builds, or FoloToy firmware builds until the `moon` command is available.
+Do not continue to `moon update`, `moon check`, `moon test`, `moonx`, Web builds, or FoloToy firmware builds until `moon` is available.
 
 ## Repository purpose
 
@@ -88,51 +54,73 @@ This repository is a downstream **AI Passport application template** and runnabl
 
 It is not the AI Passport SDK and it is not a Host implementation.
 
-The application may be replaced with another product, but the repository must continue to demonstrate the normal downstream project contract cleanly.
+Application behavior belongs here. Reusable SDK contracts, CLI behavior, Host runtimes, browser integration, ESP-IDF integration, BSP integration, and device bridges belong in `colmugx/ai-passport`.
 
-The current SDK/CLI dependency is declared in `moon.mod`. Commands and generated rules must use the co-versioned CLI rather than assuming a separately installed moving version.
+The current SDK/CLI version is declared in `moon.mod`. Every Passport CLI invocation and generated rule must use that same co-versioned release. Do not assume a separately installed moving `passport` version.
+
+Forest Walk is the current example application. It demonstrates capabilities; it does not define what downstream AI Passport products are allowed to be.
 
 ## Architectural boundary
 
-1. Application behavior belongs in this repository.
-2. SDK and Host implementation behavior belongs in `colmugx/ai-passport`.
-3. **Host is the only backend abstraction.**
-4. Web and FoloToy must execute the same application semantics.
-5. Application packages must not import Host implementation packages or platform APIs.
-6. Do not add GPIO, ADC, SPI, I2C, I2S, ESP-IDF, BSP, LCD-controller, DOM, WebAudio, or other Host-specific logic to application code.
-7. Do not branch application behavior on Host identity.
-8. The v0.1 logical display is 120×160 RGB565.
-9. Application-visible buttons are semantic `Up`, `Down`, and `Ok`.
-10. Generated Host adapters and Host workspaces are build output, not authored application source.
+1. **Host is the only backend abstraction.**
+2. Web and FoloToy execute the same portable MoonBit application semantics.
+3. Application packages must not import Host implementation packages or platform APIs.
+4. Do not add GPIO, ADC, SPI, I2C, I2S, ESP-IDF, BSP, LCD-controller, DOM, WebAudio, or other Host-specific logic to application code.
+5. Do not branch product behavior on Host identity.
+6. Use public semantic capabilities such as display information, button events, audio capture/playback, battery, and power instead of recreating Host behavior.
+7. Generated Host adapters and Host workspaces are build output, not authored application source.
+8. Physical-device evidence and software-build evidence are different claims.
 
-## Project contract
+## Current project layout
 
-The MoonBit module root contains:
+This template currently uses MoonBit's module root as its source root; `moon.mod` does not declare `source = "src"`.
+
+The authored packages are therefore at the repository root:
+
+```text
+app/
+forest_walk/
+sounds/
+```
+
+The project contract is:
 
 ```text
 moon.mod
 passport.toml
 ```
 
-`passport.toml` declares one application entry:
+`passport.toml` declares:
 
 ```toml
 entry = "app"
 ```
 
-With the normal:
+so the application package is:
 
 ```text
-source = "src"
+app/
 ```
 
-layout, that entry resolves to:
+Do not move it to `src/app` unless the project intentionally changes its MoonBit source root in the same change.
+
+Generated Host adapters belong at:
 
 ```text
-src/app
+passport-generated/
 ```
 
-The application package implements:
+Host workspaces and CLI-managed external dependencies belong under:
+
+```text
+.passport/
+```
+
+Generated sound bindings are produced beside `sounds/moon.pkg`. Do not hand-edit them.
+
+## Application contract
+
+The entry package implements:
 
 ```text
 colmugx/ai-passport/application.Application
@@ -144,30 +132,46 @@ and exports:
 pub fn passport_main() -> &@application.Application
 ```
 
-Do not create additional platform-specific application entry points.
+AI Passport 0.2 defines:
+
+```text
+update(Self, FrameContext) -> Unit
+button(Self, Button, Bool) -> Unit
+button_event(Self, Button, ButtonEvent) -> Unit
+render(Self, Int?) -> FrameView
+audio_output(Self) -> AudioOutput?
+```
+
+`button_event` has a default implementation so older applications can remain source-compatible, but new product work should use it when semantic gestures are required.
+
+Do not create platform-specific application entry points.
 
 ## Application responsibilities
 
 Application code owns:
 
-* product state
-* simulation
-* semantic input behavior
-* rendering
-* optional playback ownership
-* product-level volume/mute state when needed
+- product state
+- simulation
+- semantic input behavior
+- drawing
+- application-level backlight policy
+- optional sound playback ownership
+- optional microphone capture behavior
+- optional sleep/wake product behavior
+- product-level volume/mute state when needed
 
 Host code owns:
 
-* physical controls
-* browser input
-* display transport
-* hardware presentation
-* ESP-IDF integration
-* BSP integration
-* Web runtime
-* audio device/backend integration
-* flashing/build plumbing
+- physical input transport and gesture recognition
+- browser input transport
+- display transport
+- physical panel implementation
+- backlight transport
+- battery transport
+- microphone/audio device transport
+- sleep implementation
+- ESP-IDF/BSP/browser integration
+- firmware/build/flashing plumbing
 
 Keep that dependency direction intact.
 
@@ -175,21 +179,65 @@ Keep that dependency direction intact.
 
 `FrameContext.now_us` is monotonic Host time.
 
-Use frame-to-frame deltas, not absolute timestamp values.
+Use frame-to-frame deltas, not absolute timestamps.
 
-The first application update should normally establish a time baseline without simulating pre-application Host uptime.
+The first application update should normally establish a time baseline without simulating Host uptime that occurred before application startup.
 
-Clamp or otherwise safely handle equal/backward timestamps.
+Safely handle equal or earlier timestamps.
 
-The application owns any fixed-step simulation policy and catch-up limits.
+The application owns fixed-step simulation policy and catch-up limits.
 
-`FrameContext.presentation_lead_us` is a generic Host fact for position-driven presentation. Use it when appropriate without identifying the Host.
+`FrameContext.presentation_lead_us` is a generic Host calibration fact for playback-position-driven presentation. Use it without checking Host identity.
+
+## Display and rendering
+
+Rendering should not advance simulation state.
+
+Prefer:
+
+```text
+update       -> advances product state
+button       -> consumes low-level compatibility edges when needed
+button_event -> consumes semantic gestures
+render       -> draws current state
+```
+
+AI Passport 0.2 exposes display capabilities through:
+
+```moonbit
+@graphics.display_info()
+@graphics.Canvas::for_display()
+```
+
+The current Web and FoloToy Hosts expose a **240×320** drawing surface. Do not preserve the old 120×160 contract in new code or documentation.
+
+Prefer `Canvas::for_display()` when the product should use the full active Host surface. Do not hard-code Host-specific dimensions when `display_info()` can supply them.
+
+`DisplayInfo` contains:
+
+```text
+width
+height
+monochrome
+has_backlight
+```
+
+Backlight is optional:
+
+```moonbit
+@graphics.backlight_level()
+@graphics.set_backlight(level)
+```
+
+`set_backlight` accepts `0..100` and returns `false` when the Host has no light. A Host without a backlight is valid; application code must not assume one exists.
+
+Use the public graphics API. Do not access framebuffer ownership or physical display APIs from the application.
+
+Forest Walk's committed scenery was authored as 240×160 content. That is example-specific source art, not the SDK display contract.
 
 ## Input
 
-`button(button, pressed)` receives semantic button transitions.
-
-Use only:
+Application-visible buttons remain semantic:
 
 ```text
 Up
@@ -199,53 +247,42 @@ Ok
 
 Do not encode physical switch numbers.
 
-For stateful edge handling, prefer the SDK `InputState` rather than inventing Host-specific debounce semantics.
-
-Be explicit about whether an action occurs on press, release, click, long press, or held state.
-
-## Rendering
-
-Rendering should not advance simulation state.
-
-Prefer a structure where:
+AI Passport 0.2 supplies recognized events:
 
 ```text
-update -> advances state
-button -> records input
-render -> draws state
+Press
+Click
+DoubleClick
+LongPress
 ```
 
-Use the public graphics API and logical coordinates.
+through `Application::button_event`.
 
-Do not access framebuffer implementation details or physical display APIs from the application.
+Use `button_event` when the product needs click, double-click, or long-press behavior.
+
+Use `button` / `InputState` when the product specifically needs lower-level press/release or held state.
+
+Do not reimplement click, double-click, or long-press recognition with application timers when the Host already supplies those semantics.
+
+The Web Host recognizes gestures per button with a 300 ms double-click window and a 1500 ms long-press threshold. The FoloToy Host forwards recognized events from its pinned BSP.
+
+Do not design portable physical button chords for FoloToy. Its three buttons share one ADC ladder and simultaneous physical keys cannot be identified reliably.
 
 ## Battery
 
 Battery percentage passed to `render` is optional.
 
-Treat `None` as unavailable.
+`Some(0..100)` is a Host reading. `None` means unavailable.
 
-Do not replace unavailable Host data with invented values except inside explicit tests/fixtures.
+Do not replace unavailable Host data with invented values except in explicit tests/fixtures.
 
-## Audio
+## Audio playback
 
-Audio is optional.
+Audio playback is optional.
 
-A no-audio application should return:
+A no-audio application should return `None` from `audio_output()`.
 
-```moonbit
-None
-```
-
-from `audio_output()`.
-
-Do not create fake audio state simply because Forest Walk has audio.
-
-### Sound resources
-
-Sound resources are declared in `passport.toml`.
-
-Current sound inputs are externally prepared:
+Sound resources are declared in `passport.toml` and externally prepared as:
 
 ```text
 headerless
@@ -254,96 +291,175 @@ mono
 16000 Hz
 ```
 
-Do not add codecs, resamplers, synthesis engines, sequencers, or DAW-style abstractions unless the application product itself explicitly requires new functionality and the SDK contract supports it.
+Generated sound bindings must come from the co-versioned Passport CLI. Never hand-author Sound IDs.
 
-Generated sound bindings must come from the co-versioned Passport CLI.
+A generated `Sound` identifies a resource. A returned `Playback` identifies one live playback instance.
 
-Never hand-author Sound IDs.
+Looping and playback control belong in application code, not resource metadata.
 
-Looping, autoplay-like behavior, and playback control belong in application code, not resource metadata.
+Use `@audio.position(playback)` when presentation depends on that particular playback.
 
-A generated `Sound` identifies a resource.
+Do not add codecs, resampling, synthesis, sequencing, or exposed mixer graphs merely to consume fixed application assets; the current public SDK does not provide those facilities.
 
-A returned `Playback` identifies one playback instance.
+## Microphone capture
 
-Use `@audio.position(playback)` when presentation depends on that instance's position.
+AI Passport 0.2 exposes portable microphone capture:
+
+```moonbit
+@audio.capture_start()
+@audio.capture_status()
+@audio.capture_read(buffer)
+@audio.capture_stop()
+@audio.capture_dropped_samples()
+```
+
+Samples are signed PCM16 mono at 16000 Hz.
+
+Capture status is one of:
+
+```text
+Unavailable
+Idle
+Requesting
+Recording
+Denied
+Failed
+```
+
+On Web, permission may leave capture in `Requesting` temporarily. Read samples only while status is `Recording`.
+
+When product correctness depends on continuous samples, observe `capture_dropped_samples()`.
+
+Microphone capture is not persistent storage. Do not claim that the SDK can save recordings across sessions; there is no portable filesystem or key-value storage API.
+
+## Power
+
+AI Passport 0.2 exposes:
+
+```moonbit
+@power.request_sleep()
+@power.request_timed_sleep(ms)
+@power.wake_reason()
+```
+
+Wake causes are:
+
+```text
+Button
+Timer
+Other
+```
+
+Sleep takes effect after the current presented frame.
+
+On FoloToy, the Host implements light sleep, preserves MoonBit application state and playback positions, suspends the backlight/audio transport as required, and stops microphone capture. If the product still needs capture after wake, request it again.
+
+Do not call ESP-IDF sleep APIs from application code.
+
+## Unsupported portable capabilities
+
+Do not invent public application APIs for capabilities the current SDK does not expose, including:
+
+```text
+Wi-Fi / HTTP / Internet
+Bluetooth / BLE
+persistent key-value storage
+filesystem access
+RTC / wall-clock date and time
+touch input
+accelerometer / IMU
+arbitrary GPIO
+camera
+dynamic downloadable content
+generic application file loading
+```
+
+Physical hardware capability does not automatically mean portable SDK capability.
+
+If an unsupported capability is central to a requested product, identify the missing SDK capability rather than bypassing the Host boundary.
 
 ## Forest Walk
 
-Forest Walk is the current reference application.
+Forest Walk is a reference application, not SDK semantics.
 
-It demonstrates application behavior; it does not define SDK semantics.
-
-Its concepts may be removed when a downstream user creates another application.
-
-Do not preserve Forest Walk code merely because it existed in the template.
+Its code may be replaced completely in a downstream product.
 
 When modifying Forest Walk itself:
 
-* maintain deterministic simulation
-* keep drawing separate from simulation
-* retain playback-instance ownership
-* keep the monotonic visual fallback when playback position is unavailable
-* use Host `presentation_lead_us` rather than Host checks
-* preserve one semantic action per intended input edge
+- keep simulation deterministic
+- keep drawing separate from simulation
+- retain playback-instance ownership
+- preserve the monotonic visual fallback when playback position is unavailable
+- use `presentation_lead_us` rather than Host checks
+- keep product input semantics explicit
+- distinguish Forest Walk's authored 240×160 scenery from the SDK's current 240×320 display surface
+
+Do not preserve Forest Walk complexity in unrelated downstream products.
 
 ## Public API discipline
 
-This is an application repository, not a library API surface.
+This is an application repository, not a reusable library API.
 
 Prefer private application state and helpers.
 
-Do not make application internals public solely to support tests.
+Do not make internals public solely to support tests.
 
-MoonBit test visibility rules matter:
+MoonBit test visibility:
 
 ```text
-*_test.mbt    black-box tests
-*_wbtest.mbt  white-box tests
+*_test.mbt    black-box
+*_wbtest.mbt  white-box
 ```
 
 Use white-box tests when private product state needs direct testing.
 
-Keep `passport_main()` as the important public integration entry.
+Keep `passport_main()` as the essential public integration entry.
 
 ## Generated files
 
-Do not hand-edit:
+Do not hand-edit or commit generated Host output:
 
 ```text
-src/passport-generated/
+passport-generated/
 .passport/
 ```
 
-Do not commit generated Host workspaces.
+The sound binding generated by `sounds/moon.pkg` is generator-owned as well.
 
-Generated sound binding files are generator-owned outputs as declared by their package's `rule` / `dev_build`.
+If generated output is wrong, fix the project contract, input metadata, application source, or generator. Do not patch generated files as the long-term source of truth.
 
-If generated output is wrong, fix the project contract, source input, or generator. Do not patch the generated result as the long-term solution.
+## FoloToy dependency resolution
 
-## External FoloToy checkout
+This template does **not** currently vendor an `external/folotoy-ai-passport` checkout or declare a `hostDependencies` override.
 
-The template currently supplies:
+By default, the Passport CLI resolves its pinned FoloToy dependency under:
 
 ```text
-external/folotoy-ai-passport
+.passport/deps/
 ```
 
-through the `hostDependencies` override in `passport.toml`.
+Only add:
 
-Treat this checkout as a Host dependency, not an application package.
+```toml
+[hostDependencies."folotoy-ai-passport"]
+path = "external/folotoy-ai-passport"
+```
 
-Do not import it from MoonBit application code.
+when a project intentionally owns such a checkout.
 
-Do not copy BSP or hardware source into `src/app`.
-
-A downstream project may remove the override and let the Passport CLI use its pinned dependency resolution instead.
+Do not import BSP code from MoonBit application packages.
 
 ## Commands
 
-Use the SDK version declared by `moon.mod`.
+Read the exact SDK version from `moon.mod` and use it for the CLI.
 
-For the current template:
+Current template version:
+
+```text
+0.2.0
+```
+
+Project checks:
 
 ```sh
 moon update
@@ -373,7 +489,7 @@ The build command does not constitute a successful flash or physical-device test
 
 ## Validation expectations
 
-Distinguish these claims:
+Distinguish:
 
 ```text
 source reviewed
@@ -385,62 +501,76 @@ physical device flashed
 physical behavior validated
 ```
 
-Do not collapse them into a generic "works".
+Do not collapse these into a generic "works".
 
-When reporting firmware size, identify whether the number refers to:
+When reporting firmware size, identify whether the number is:
 
-* the application partition binary
-* a resource/sound bank
-* a merged Full Flash image
+- the application partition binary
+- a sound/resource bank
+- a merged Full Flash image
 
 Do not compare different binary scopes as if they were equivalent.
 
+When an application uses 0.2 capabilities, exercise the relevant paths:
+
+- click/double-click/long-press
+- full display geometry
+- optional backlight
+- microphone permission/capture status
+- sleep and button/timer wake
+
 ## Template changes
 
-When changing the template itself, optimize for a new developer rather than for showcasing implementation sophistication.
+Optimize this repository for a developer or coding agent starting a new product, not for showcasing Forest Walk sophistication.
 
-A new developer should be able to identify quickly:
+A new developer should quickly identify:
 
 1. where application code lives
 2. which file selects the entry
-3. which controls are available
-4. how to run Web
-5. how to build the device
-6. which files are generated
-7. which example-specific pieces may be deleted
+3. which input events exist
+4. which display/audio/microphone/power capabilities exist
+5. how to run Web
+6. how to build the device
+7. which files are generated
+8. which Forest Walk-specific pieces may be deleted
 
-Do not make optional product capabilities look mandatory.
+Do not make audio, microphone, backlight, power, ordinary assets, or Forest Walk-specific packages look mandatory when a product does not need them.
 
-In particular, audio, assets, external Host overrides, and Forest Walk-specific packages are examples, not requirements of every AI Passport application.
+## README and Skill consistency
 
-## README consistency
-
-When the project contract changes, update README examples in the same change.
+When the project contract or SDK capabilities change, update `README.mbt.md`, `AGENTS.md`, and the AI Passport firmware-development Skill in the same change.
 
 Check especially:
 
-* SDK/CLI version
-* `passport.toml`
-* sound declarations
-* generated sound rule
-* supported Host names
-* build commands
-* generated output paths
-* flash instructions
+- SDK/CLI version
+- actual MoonBit source-root layout
+- `passport.toml`
+- Application trait methods
+- display dimensions and capability query
+- input gesture semantics
+- sound declarations
+- microphone capture
+- sleep/wake behavior
+- generated output paths
+- dependency resolution
+- Host build commands
+- flash instructions
 
-Do not document old `passport.json`, removed sound metadata, old global playback-position models, or deprecated Host layout as current behavior.
+Do not document old `passport.json`, removed sound metadata, old 120×160 display behavior, obsolete global playback-position models, or nonexistent external checkouts as current behavior.
 
 ## Completion gate
 
-Before finishing a change:
+Before finishing a template change:
 
-* [ ] application code remains Host-independent
-* [ ] `moon check --output-json` passes
-* [ ] `moon test --output-json` passes
-* [ ] `moon info` has no unintended public interface change
-* [ ] `moon fmt` has been run
-* [ ] generated files are not accidentally committed
-* [ ] README remains consistent with the project contract
-* [ ] Web behavior is exercised when product behavior changes
-* [ ] FoloToy build is exercised when device integration is affected
-* [ ] physical-device claims are made only from physical-device evidence
+- [ ] application code remains Host-independent
+- [ ] documentation matches the actual repository layout
+- [ ] documentation matches the SDK version in `moon.mod`
+- [ ] `moon check --output-json` passes
+- [ ] `moon test --output-json` passes
+- [ ] `moon info` has no unintended public interface change
+- [ ] `moon fmt` has been run
+- [ ] generated files are not accidentally committed
+- [ ] README and Skill remain consistent with the project contract
+- [ ] Web behavior is exercised when product behavior changes
+- [ ] FoloToy build is exercised when device integration is affected
+- [ ] physical-device claims are made only from physical-device evidence
