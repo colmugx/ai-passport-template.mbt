@@ -472,7 +472,7 @@ Read the exact SDK version from `moon.mod` and use it for the CLI.
 Current template version:
 
 ```text
-0.2.0
+0.2.1
 ```
 
 Project checks:
@@ -489,16 +489,16 @@ git diff --exit-code
 Web:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.2.0 doctor --host web
-moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host web
-moonx colmugx/ai-passport/cmd/passport@0.2.0 dev --host web
+moonx colmugx/ai-passport/cmd/passport@0.2.1 doctor --host web
+moonx colmugx/ai-passport/cmd/passport@0.2.1 build --host web
+moonx colmugx/ai-passport/cmd/passport@0.2.1 dev --host web
 ```
 
 FoloToy:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.2.0 doctor --host folotoy-ai-passport
-moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.2.1 doctor --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.2.1 build --host folotoy-ai-passport
 ```
 
 The build command does not constitute a successful flash or physical-device test.
