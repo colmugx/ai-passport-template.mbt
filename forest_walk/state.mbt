@@ -9,7 +9,7 @@ pub struct State {
   priv frame : Int // monotonically increasing frame counter
   priv scroll_sixteenth : Int // horizontal scroll in sixteenth-pixels (see update.mbt)
   priv walker_frame : Int // fairy pose 0..=5, held 4/3 eighth notes per pose
-  priv walker_sheet : @graphics.SpriteSheet // built once in State::new
+  priv walker_sheet : IndexedSpriteSheet // built once in State::new
   // The three authored parallax layers, built once in State::new.
   priv far_layer : IndexedLayer
   priv world_layer : IndexedLayer
@@ -57,7 +57,7 @@ pub fn State::walker_frame(self : State) -> Int {
 ///|
 /// The six-frame 28x32 right-facing fairy sprite sheet compiled from source art.
 pub fn State::walker_sheet(self : State) -> @graphics.SpriteSheet {
-  self.walker_sheet
+  self.walker_sheet.to_sprite_sheet()
 }
 
 ///|
