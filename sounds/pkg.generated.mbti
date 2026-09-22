@@ -14,6 +14,10 @@ import {
 pub(all) enum Sound {
   ForestWalk
 } derive(Eq, @debug.Debug)
+pub fn Sound::equal(Self, Self) -> Bool
+pub fn Sound::not_equal(Self, Self) -> Bool
+pub fn Sound::resource_id(Self) -> UInt
+pub fn Sound::to_repr(Self) -> @debug.Repr
 pub impl @audio.Sound for Sound
 
 // Type aliases

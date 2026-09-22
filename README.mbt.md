@@ -275,7 +275,13 @@ The included Forest Walk application demonstrates:
 - fallback visual timing when playback position is unavailable
 - Host-provided presentation lead without checking Host identity
 
-Its committed scenery was authored as **240×160** application content. That is an example-specific asset size, not the AI Passport 0.2 display contract; the current Host drawing surface is 240×320.
+Its committed scenery is converted to the full **240×320** Host surface from the restored PNG authoring assets. The converter uses a deterministic 3:4 cover crop so the 3:2 source art is not stretched.
+
+The source PNGs and repeatable converters live under `assets/forest_walk/` and
+`tools/compile_*.py`. They are local authoring inputs and are intentionally
+ignored by Git; the generated runtime data remains in `forest_walk/generated.mbt`.
+When that local authoring kit is present, run `tools/compile_assets.sh` after
+changing the art.
 
 Its committed audio resource is:
 
@@ -317,6 +323,10 @@ moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host web
 ```
 
 The generated Web workspace contains the application Wasm, Host files, sound bank, and declared assets.
+
+The reference page opens at the native **240×320** CSS size so the portrait preview
+matches the physical Host. Add `?scale=2` (or another positive integer) to the
+URL only when an enlarged pixel preview is useful during development.
 
 A browser may require permission or a user gesture for audio output or microphone capture.
 

@@ -15,13 +15,13 @@ fn count_transparent_samples(layer : IndexedLayer) -> Int {
 }
 
 ///|
-test "generated scenery layers are 240x160 with compact palettes" {
+test "generated scenery layers are 240x320 with compact palettes" {
   let far = build_forest_far_layer()
   let world = build_forest_world_layer()
   let foreground = build_forest_foreground_layer()
-  debug_inspect((far.width, far.height), content="(240, 160)")
-  debug_inspect((world.width, world.height), content="(240, 160)")
-  debug_inspect((foreground.width, foreground.height), content="(240, 160)")
+  debug_inspect((far.width, far.height), content="(240, 320)")
+  debug_inspect((world.width, world.height), content="(240, 320)")
+  debug_inspect((foreground.width, foreground.height), content="(240, 320)")
   // At most 128 opaque colors; transparent layers reserve index 0.
   assert_true(far.palette.length() <= 128)
   assert_true(world.palette.length() <= 129)
@@ -128,16 +128,16 @@ test "scene renders every layer at its own scroll offset" {
   let canvas = @graphics.Canvas::logical()
   state_at_scroll(scroll~, walker_frame=1).draw(canvas~, battery_percent=None)
   let foreground_offset = foreground_scroll_offset(scroll)
-  let row = FixedArray::make(120, 0)
+  let row = FixedArray::make(canvas.width(), 0)
   // Right of the fairy and below the HUD, the scene is exactly the layer
   // stack: opaque foreground wins, otherwise the world layer, otherwise the
   // far layer through the world's transparent gaps. Each assertion also
   // verifies that layer's scroll offset.
   let mut world_verified = 0
   let mut foreground_verified = 0
-  for y in 12..<158 {
-    assert_eq(canvas.frame_view().copy_rgb565_row(y~, out=row), 120)
-    for x in 60..<118 {
+  for y in 12..<(canvas.height() - 2) {
+    assert_eq(canvas.frame_view().copy_rgb565_row(y~, out=row), canvas.width())
+    for x in 60..<(canvas.width() - 2) {
       let fg_index = foreground.indices[y * 240 +
         ping_pong_x(x + foreground_offset, 240)]
       if fg_index.to_int() != 0 {
@@ -192,14 +192,17 @@ test "fairy stays fixed in screen space while the world scrolls" {
     )
     let sheet = build_fairy_walk_right_sheet()
     canvas.sprite(sheet~, frame=2, x=FAIRY_X, y=FAIRY_BASELINE_Y - 32)
-    let mut min_x = 120
+    let mut min_x = canvas.width()
     let mut max_x = -1
-    let mut min_y = 160
+    let mut min_y = canvas.height()
     let mut max_y = -1
-    let row = FixedArray::make(120, 0)
-    for y in 0..<160 {
-      assert_eq(canvas.frame_view().copy_rgb565_row(y~, out=row), 120)
-      for x in 0..<120 {
+    let row = FixedArray::make(canvas.width(), 0)
+    for y in 0..<canvas.height() {
+      assert_eq(
+        canvas.frame_view().copy_rgb565_row(y~, out=row),
+        canvas.width(),
+      )
+      for x in 0..<canvas.width() {
         if row[x] == signature {
           if x < min_x {
             min_x = x

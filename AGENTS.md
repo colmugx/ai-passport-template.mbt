@@ -223,6 +223,10 @@ AI Passport 0.2 exposes display capabilities through:
 
 The current Web and FoloToy Hosts expose a **240×320** drawing surface. Do not preserve the old 120×160 contract in new code or documentation.
 
+The Web reference page keeps its canvas at the native 240×320 CSS size. A
+positive `?scale=N` URL parameter is an explicit enlarged debug preview, not a
+different application resolution.
+
 Prefer `Canvas::for_display()` when the product should use the full active Host surface. Do not hard-code Host-specific dimensions when `display_info()` can supply them.
 
 `DisplayInfo` contains:
@@ -245,7 +249,7 @@ Backlight is optional:
 
 Use the public graphics API. Do not access framebuffer ownership or physical display APIs from the application.
 
-Forest Walk's committed scenery was authored as 240×160 content. That is example-specific source art, not the SDK display contract.
+Forest Walk's source PNGs are 1536×1024 authoring art, converted with a deterministic 3:4 cover crop into 240×320 runtime layers. The local PNGs and converter helpers are ignored authoring inputs; the generated runtime data is example-specific, not the SDK display contract.
 
 ## Input
 
@@ -404,7 +408,7 @@ When modifying Forest Walk itself:
 - preserve the monotonic visual fallback when playback position is unavailable
 - use `presentation_lead_us` rather than Host checks
 - keep product input semantics explicit
-- distinguish Forest Walk's authored 240×160 scenery from the SDK's current 240×320 display surface
+- distinguish Forest Walk's 1536×1024 source art and 240×320 generated scenery from the SDK's current 240×320 display surface
 
 Do not preserve Forest Walk complexity in unrelated downstream products.
 

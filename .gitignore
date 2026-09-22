@@ -8,3 +8,12 @@ _build/
 /.passport/
 passport-generated/
 sounds/generated.mbt
+
+# Local Forest Walk authoring inputs and conversion helpers. The generated
+# runtime data stays tracked in forest_walk/generated.mbt.
+assets/forest_walk/
+tools/compile_assets.sh
+tools/compile_layers.py
+tools/compile_sprite.py
+tools/png_decode.py
+tools/__pycache__/
