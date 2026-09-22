@@ -4,8 +4,8 @@ const FAIRY_X : Int = 26
 
 ///|
 /// Ground line under the fairy's feet, chosen on the forest_world road
-/// surface (the 240x320 generated layer places the road around rows
-/// 228..258, so 252 puts her feet on its lower half).
+/// surface. The scenery is stored as 120x160 indexed samples and presented
+/// at 2x onto the 240x320 Canvas; 252 puts her feet on the road's lower half.
 const FAIRY_BASELINE_Y : Int = 252
 
 ///|
