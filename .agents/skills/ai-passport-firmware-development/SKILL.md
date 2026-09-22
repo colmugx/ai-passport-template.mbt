@@ -24,7 +24,7 @@ For an existing project, inspect at least:
 
 Read the exact `colmugx/ai-passport@VERSION` from `moon.mod` and use the same version for every `moonx colmugx/ai-passport/cmd/passport@VERSION` command.
 
-Do not assume an old SDK shape. The current template uses AI Passport 0.2.2, but an existing downstream project may intentionally use another version.
+Do not assume an old SDK shape. The current template uses AI Passport 0.2.3, but an existing downstream project may intentionally use another version.
 
 ## 2. Ensure the MoonBit toolchain exists
 
@@ -427,7 +427,7 @@ version = "0.0.1"
 source = "src"
 
 import {
-  "colmugx/ai-passport@0.2.2",
+  "colmugx/ai-passport@0.2.3",
 }
 ```
 
@@ -518,7 +518,7 @@ import {
 
 rule(
   name: "passport-sounds",
-  command: "moonx colmugx/ai-passport/cmd/passport@0.2.2 generate-sounds $input $output",
+  command: "moonx colmugx/ai-passport/cmd/passport@0.2.3 generate-sounds $input $output",
 )
 
 dev_build(
