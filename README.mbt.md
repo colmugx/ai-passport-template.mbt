@@ -2,7 +2,13 @@
 
 A runnable MoonBit starter project for building applications that run on AI Passport Hosts.
 
-The template currently includes **Forest Walk** as a complete example with graphics, input, battery state, looping audio, and synchronized animation. Replace its application behavior with your own product while keeping the same portable application boundary.
+The template currently includes **Forest Walk** as a complete example with graphics, semantic input, battery state, looping audio, and synchronized animation. Replace its application behavior with your own product while keeping the same portable application boundary.
+
+The current SDK/CLI dependency is:
+
+```text
+colmugx/ai-passport@0.2.0
+```
 
 ## Start here
 
@@ -28,20 +34,20 @@ Then open:
 http://127.0.0.1:8000/index.html
 ```
 
-The same MoonBit application can be built for the physical FoloToy AI Passport Host:
+Build the same MoonBit application for the physical FoloToy AI Passport Host:
 
 ```sh
 moonx colmugx/ai-passport/cmd/passport@0.2.0 doctor --host folotoy-ai-passport
 moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host folotoy-ai-passport
 ```
 
-The build creates the device workspace under:
+The build creates:
 
 ```text
 .passport/folotoy-ai-passport/
 ```
 
-It does not flash the device.
+and does not flash automatically.
 
 With a board connected:
 
@@ -52,19 +58,22 @@ With a board connected:
 
 ## Project structure
 
-The important authored files are:
+This template currently uses the MoonBit module root as its source root:
 
 ```text
 moon.mod
 passport.toml
 
-src/
-  app/
-    app.mbt
-    application.mbt
-    moon.pkg
-  sounds/
-    moon.pkg
+app/
+  app.mbt
+  application.mbt
+  moon.pkg
+
+forest_walk/
+  ...
+
+sounds/
+  moon.pkg
 
 assets/
   forest_walk.pcm
@@ -73,7 +82,7 @@ assets/
 Generated Host adapters are written under:
 
 ```text
-src/passport-generated/
+passport-generated/
 ```
 
 Host workspaces and resolved build dependencies are written under:
@@ -92,13 +101,13 @@ Those are build output and should not be hand-edited.
 entry = "app"
 ```
 
-With `source = "src"` in `moon.mod`, this means the application lives at:
+With this template's current source-root layout, that means the application lives at:
 
 ```text
-src/app
+app/
 ```
 
-That package implements:
+The package implements:
 
 ```text
 colmugx/ai-passport/application.Application
@@ -110,18 +119,58 @@ and exports:
 pub fn passport_main() -> &@application.Application
 ```
 
-The portable application receives:
+AI Passport 0.2 applications receive:
 
-* monotonic Host time
-* Host presentation calibration
-* semantic `Up`, `Down`, and `Ok` button transitions
-* best-effort battery percentage
+- monotonic Host time
+- Host presentation calibration
+- semantic `Up`, `Down`, and `Ok` input
+- recognized `Press`, `Click`, `DoubleClick`, and `LongPress` events
+- best-effort battery percentage
 
-and returns a logical 120×160 RGB565 frame.
+and can use portable display, backlight, sound playback, microphone capture, and sleep/wake capabilities.
 
-The application should not contain browser APIs, ESP-IDF code, GPIO numbers, display-controller code, or other Host implementation details.
+Application code should not contain browser APIs, ESP-IDF code, GPIO numbers, display-controller code, or other Host implementation details.
 
 The Web and FoloToy Hosts run the same application semantics.
+
+## Display and input
+
+AI Passport 0.2 exposes the active display through:
+
+```moonbit
+let info = @graphics.display_info()
+let canvas = @graphics.Canvas::for_display()
+```
+
+The current Web and FoloToy Hosts provide **240×320** pixels.
+
+Backlight is optional:
+
+```moonbit
+@graphics.backlight_level()
+@graphics.set_backlight(50)
+```
+
+Input remains semantic:
+
+```text
+Up
+Down
+Ok
+```
+
+For gesture-oriented products, implement `button_event` and handle:
+
+```text
+Press
+Click
+DoubleClick
+LongPress
+```
+
+Use the lower-level `button(button, pressed)` / `InputState` path when the product specifically needs press/release or held state.
+
+The FoloToy buttons share one ADC ladder, so portable products should not depend on physical button chords.
 
 ## Applications without audio
 
@@ -139,9 +188,9 @@ You do not need to keep Forest Walk's audio setup when your product does not use
 
 ## Sounds
 
-Forest Walk demonstrates the v0.1 typed Sound workflow.
+Forest Walk demonstrates the typed Sound workflow.
 
-`passport.toml` declares the source resource:
+`passport.toml` declares:
 
 ```toml
 [[sounds]]
@@ -158,7 +207,7 @@ mono
 headerless
 ```
 
-`src/sounds/moon.pkg` runs the pinned CLI generator:
+`sounds/moon.pkg` runs the co-versioned generator:
 
 ```moonbit
 rule(
@@ -168,7 +217,7 @@ rule(
 
 dev_build(
   rule: "passport-sounds",
-  input: "../../passport.toml",
+  input: "../passport.toml",
   output: "generated.mbt",
 )
 ```
@@ -179,24 +228,54 @@ Application code then uses the generated typed value:
 @audio.play(@sounds.ForestWalk, looping=true)
 ```
 
-The returned `Playback` identifies that playback instance. Operations such as position, pause, resume, and stop target the `Playback`, not the Sound resource globally.
+The returned `Playback` identifies that playback instance. Pause, resume, stop, and position operations target the `Playback`, not the Sound resource globally.
 
-Looping is playback behavior and is therefore selected by `play`, not stored in `passport.toml`.
+Looping is playback behavior and is selected by `play`, not stored in `passport.toml`.
+
+## Microphone capture
+
+AI Passport 0.2 also exposes microphone capture:
+
+```moonbit
+@audio.capture_start()
+@audio.capture_status()
+@audio.capture_read(buffer)
+@audio.capture_stop()
+@audio.capture_dropped_samples()
+```
+
+Capture is signed PCM16 mono at 16000 Hz.
+
+On Web, microphone permission may temporarily leave capture in `Requesting`. Read only while status is `Recording`.
+
+This supports live audio-reactive products. It does not provide persistent recording storage.
+
+## Power
+
+Applications may request sleep with:
+
+```moonbit
+@power.request_sleep()
+@power.request_timed_sleep(ms)
+@power.wake_reason()
+```
+
+On FoloToy, this maps to light sleep. Application state and playback position survive; microphone capture stops and should be restarted after wake if the product still needs it.
 
 ## Forest Walk example
 
 The included Forest Walk application demonstrates:
 
-* a portable MoonBit application state
-* 120×160 rendering
-* parallax sprite animation
-* semantic button input
-* Host battery display
-* fixed-step simulation
-* looping typed Sound playback
-* animation synchronized to a particular Playback position
-* fallback visual timing when playback position is unavailable
-* Host-provided presentation lead without checking Host identity
+- portable MoonBit application state
+- semantic input
+- Host battery display
+- fixed-step simulation
+- looping typed Sound playback
+- animation synchronized to a particular Playback position
+- fallback visual timing when playback position is unavailable
+- Host-provided presentation lead without checking Host identity
+
+Its committed scenery was authored as **240×160** application content. That is an example-specific asset size, not the AI Passport 0.2 display contract; the current Host drawing surface is 240×320.
 
 Its committed audio resource is:
 
@@ -218,14 +297,15 @@ entry = "app"
 [[sounds]]
 name = "forest_walk"
 source = "assets/forest_walk.pcm"
-
-# [hostDependencies."folotoy-ai-passport"]
-# path = "external/folotoy-ai-passport"
 ```
 
-The `hostDependencies` entry points the device build at the project-owned FoloToy checkout.
+The template does not currently vendor a project-owned FoloToy checkout.
 
-If a project does not provide that override, the Passport CLI can resolve its pinned Host dependency under `.passport/deps/`.
+Without a `hostDependencies` override, the Passport CLI resolves its pinned FoloToy dependency under:
+
+```text
+.passport/deps/
+```
 
 ## Web build
 
@@ -238,9 +318,7 @@ moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host web
 
 The generated Web workspace contains the application Wasm, Host files, sound bank, and declared assets.
 
-Sound configuration does not travel through URL parameters.
-
-A browser may require one user gesture before audio playback can begin.
+A browser may require permission or a user gesture for audio output or microphone capture.
 
 ## Development checks
 
@@ -255,7 +333,7 @@ moon fmt
 git diff --exit-code
 ```
 
-When application behavior changes, also exercise it through the Web Host.
+When application behavior changes, exercise it through the Web Host.
 
 When device behavior matters, build the FoloToy Host and test the resulting firmware on physical hardware. A successful firmware build alone is not physical-device validation.
 
@@ -266,19 +344,13 @@ A practical sequence is:
 1. Rename the module in `moon.mod`.
 2. Keep `passport.toml` with `entry = "app"`.
 3. Replace Forest Walk state and rendering with your own application.
-4. Remap `Up`, `Down`, and `Ok` to your product controls.
-5. Delete Forest Walk sound configuration if your application does not use audio.
-6. Keep application logic independent of Web and FoloToy implementation details.
-7. Add tests for product state before adding Host-specific complexity.
-8. Validate Web.
-9. Build and test physical hardware.
-
-For a very small application, the final authored project may need little more than:
-
-```text
-moon.mod
-passport.toml
-src/app/
-```
+4. Map `Up`, `Down`, `Ok` and gesture events to your product.
+5. Use `Canvas::for_display()` and query display capabilities when creating new UI.
+6. Delete Forest Walk sound configuration if your application does not use audio.
+7. Add microphone, backlight, or sleep behavior only when the product needs it.
+8. Keep application logic independent of Web and FoloToy implementation details.
+9. Add tests for product state.
+10. Validate Web.
+11. Build and test physical hardware.
 
 Additional packages and resources should exist because the product needs them, not because the template happens to demonstrate them.
