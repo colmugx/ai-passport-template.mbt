@@ -15,13 +15,22 @@ fn count_transparent_samples(layer : IndexedLayer) -> Int {
 }
 
 ///|
-test "generated scenery layers are 240x320 with compact palettes" {
+test "generated scenery layers are 120x160 samples presented at 2x" {
   let far = build_forest_far_layer()
   let world = build_forest_world_layer()
   let foreground = build_forest_foreground_layer()
-  debug_inspect((far.width, far.height), content="(240, 320)")
-  debug_inspect((world.width, world.height), content="(240, 320)")
-  debug_inspect((foreground.width, foreground.height), content="(240, 320)")
+  debug_inspect((far.width, far.height, far.scale), content="(120, 160, 2)")
+  debug_inspect(
+    (world.width, world.height, world.scale),
+    content="(120, 160, 2)",
+  )
+  debug_inspect(
+    (foreground.width, foreground.height, foreground.scale),
+    content="(120, 160, 2)",
+  )
+  assert_eq(far.indices.length(), 19200)
+  assert_eq(world.indices.length(), 19200)
+  assert_eq(foreground.indices.length(), 19200)
   // At most 128 opaque colors; transparent layers reserve index 0.
   assert_true(far.palette.length() <= 128)
   assert_true(world.palette.length() <= 129)
@@ -48,6 +57,7 @@ test "transparent samples leave the destination pixel untouched" {
   let layer : IndexedLayer = {
     width: 3,
     height: 2,
+    scale: 1,
     palette: FixedArray::from_array([
       @core.Color::rgb(r=255, g=0, b=255), // reserved slot, never sampled
       @core.Color::rgb(r=255, g=0, b=0),
@@ -89,6 +99,7 @@ test "renderer samples the mirrored tile past the layer width" {
   let layer : IndexedLayer = {
     width: 2,
     height: 1,
+    scale: 1,
     palette: FixedArray::from_array([
       @core.Color::rgb(r=255, g=0, b=0),
       @core.Color::rgb(r=0, g=0, b=255),
@@ -138,19 +149,32 @@ test "scene renders every layer at its own scroll offset" {
   for y in 12..<(canvas.height() - 2) {
     assert_eq(canvas.frame_view().copy_rgb565_row(y~, out=row), canvas.width())
     for x in 60..<(canvas.width() - 2) {
-      let fg_index = foreground.indices[y * 240 +
-        ping_pong_x(x + foreground_offset, 240)]
+      let fg_x = ping_pong_x(
+        floor_div(x + foreground_offset, foreground.scale),
+        foreground.width,
+      )
+      let fg_y = y / foreground.scale
+      let fg_index = foreground.indices[fg_y * foreground.width + fg_x]
       if fg_index.to_int() != 0 {
         assert_eq(row[x], foreground.palette[fg_index.to_int()].to_rgb565())
         foreground_verified += 1
       } else {
-        let world_index = world.indices[y * 240 + ping_pong_x(x + scroll, 240)]
+        let world_x = ping_pong_x(
+          floor_div(x + scroll, world.scale),
+          world.width,
+        )
+        let world_y = y / world.scale
+        let world_index = world.indices[world_y * world.width + world_x]
         if world_index.to_int() != 0 {
           assert_eq(row[x], world.palette[world_index.to_int()].to_rgb565())
           world_verified += 1
         } else {
-          let far_index = far.indices[y * 240 +
-            ping_pong_x(x + far_scroll_offset(scroll), 240)]
+          let far_x = ping_pong_x(
+            floor_div(x + far_scroll_offset(scroll), far.scale),
+            far.width,
+          )
+          let far_y = y / far.scale
+          let far_index = far.indices[far_y * far.width + far_x]
           assert_eq(row[x], far.palette[far_index.to_int()].to_rgb565())
         }
       }
