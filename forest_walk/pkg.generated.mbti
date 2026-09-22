@@ -35,6 +35,7 @@ pub fn ping_pong_x(Int, Int) -> Int
 pub(all) struct IndexedLayer {
   width : Int
   height : Int
+  scale : Int
   palette : FixedArray[@core.Color]
   indices : FixedArray[Byte]
   transparent_index : Int?
