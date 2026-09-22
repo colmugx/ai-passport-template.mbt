@@ -66,10 +66,7 @@ fn draw_indexed_layer(
   let transparent = layer.transparent_index
 
   for x in 0..<columns {
-    let source_x = ping_pong_x(
-      floor_div(x + scroll_x, scale),
-      layer.width,
-    )
+    let source_x = ping_pong_x(floor_div(x + scroll_x, scale), layer.width)
     for y in 0..<rows {
       let source_y = y / scale
       let index = indices[source_y * layer.width + source_x].to_int()
