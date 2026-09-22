@@ -38,6 +38,18 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang
 
 If the user is in mainland China, the environment is known to use CN network access, or the `.com` installer endpoint fails because of regional access, replace `cli.moonbitlang.com` with `cli.moonbitlang.cn`.
 
+Linux and macOS CN endpoint:
+
+```sh
+curl -fsSL https://cli.moonbitlang.cn/install/unix.sh | bash
+```
+
+Windows PowerShell CN endpoint:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.cn/install/powershell.ps1 | iex
+```
+
 After installation, verify:
 
 ```sh
