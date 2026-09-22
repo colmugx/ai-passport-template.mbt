@@ -8,8 +8,8 @@ test "battery HUD formats runtime percentage and unknown reading" {
 
 ///|
 /// TEST-ONLY reference renderer (R3A): the pre-optimization sampling
-/// algorithm kept verbatim — one `ping_pong_x` call per destination pixel
-/// with its modulo, positive-modulo wrap and transparency Option match.
+/// algorithm kept deliberately simple — one scaled source lookup and
+/// `ping_pong_x` call per destination pixel with the transparency match.
 /// It is the normative semantics of `draw_indexed_layer`; acceptance for
 /// the optimized renderer is EXACT framebuffer equality against this, not
 /// visual similarity. This is not a second production renderer and must
@@ -19,16 +19,19 @@ fn draw_indexed_layer_reference(
   layer~ : IndexedLayer,
   scroll_x~ : Int,
 ) -> Unit {
-  let screen_width = canvas.width()
-  let rows = canvas.height().min(layer.height)
-  let layer_width = layer.width
+  let columns = canvas.width().min(layer.width * layer.scale)
+  let rows = canvas.height().min(layer.height * layer.scale)
   let palette = layer.palette
   let indices = layer.indices
   let transparent_index = layer.transparent_index
   for y in 0..<rows {
-    let row = y * layer_width
-    for x in 0..<screen_width {
-      let index = indices[row + ping_pong_x(x + scroll_x, layer_width)].to_int()
+    let source_y = y / layer.scale
+    for x in 0..<columns {
+      let source_x = ping_pong_x(
+        floor_div(x + scroll_x, layer.scale),
+        layer.width,
+      )
+      let index = indices[source_y * layer.width + source_x].to_int()
       let skip = match transparent_index {
         Some(t) => index == t
         None => false
@@ -126,8 +129,8 @@ fn assert_layer_equivalence(
 /// reference framebuffer across the representative scroll matrix on all
 /// three authored layers — opaque far mist, transparent world (the fairy's
 /// road), transparent foreground — including the mirror-seam and
-/// full-period boundaries of the 240-wide ping-pong ring and negative
-/// scrolls, plus a clipped canvas size.
+/// full-period boundaries of the 120-sample ring presented at 2x and
+/// negative scrolls, plus a clipped canvas size.
 test "layer renderer is framebuffer-exact vs the reference across the scroll matrix" {
   let state = State::new()
   let scrolls = [0, 1, 119, 120, 239, 240, 241, 479, 480, -1, -120, -240]
