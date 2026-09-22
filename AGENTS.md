@@ -1,5 +1,87 @@
 # AGENTS.md
 
+## Ensure the MoonBit toolchain exists
+
+Do not assume the user's machine already has MoonBit installed.
+
+Before running any `moon`, `moonx`, Web Host, or firmware build command, first check whether the MoonBit toolchain is available.
+
+On Linux or macOS:
+
+```sh
+command -v moon
+moon version --all
+```
+
+On Windows PowerShell:
+
+```powershell
+Get-Command moon -ErrorAction SilentlyContinue
+moon version --all
+```
+
+If `moon` is already available, do not reinstall the toolchain. Continue with the project.
+
+## Install MoonBit when missing
+
+Detect the user's operating system and use the appropriate official installer.
+
+### Linux and macOS
+
+```sh
+curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+```
+
+### Windows PowerShell
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+```
+
+Do not ask the user to install MoonBit manually when the environment allows the installer command to be executed directly.
+
+After installation, verify:
+
+```sh
+moon version --all
+```
+
+If installation succeeds but the current shell still cannot find `moon`, refresh the shell environment or update `PATH` as instructed by the installer, then verify again. Do not repeatedly reinstall MoonBit to solve a stale `PATH`.
+
+### China network fallback
+
+If the user is in mainland China, the execution environment is known to use CN network access, or the `.com` installer endpoint fails because of regional network access, replace:
+
+```text
+cli.moonbitlang.com
+```
+
+with:
+
+```text
+cli.moonbitlang.cn
+```
+
+Linux and macOS:
+
+```sh
+curl -fsSL https://cli.moonbitlang.cn/install/unix.sh | bash
+```
+
+Windows PowerShell:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.cn/install/powershell.ps1 | iex
+```
+
+After installing through either endpoint, verify the actual installed toolchain rather than assuming installation succeeded:
+
+```sh
+moon version --all
+```
+
+Do not continue to `moon update`, `moon check`, `moon test`, `moonx`, Web builds, or FoloToy firmware builds until the `moon` command is available.
+
 ## Repository purpose
 
 This repository is a downstream **AI Passport application template** and runnable reference application.

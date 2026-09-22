@@ -937,7 +937,93 @@ Those belong to Hosts.
 
 ---
 
-# 12. Build workflow
+# 12. Ensure the MoonBit toolchain exists
+
+Do not assume the user's machine already has MoonBit installed.
+
+Before running any `moon`, `moonx`, Web Host, or firmware build command, first check whether the MoonBit toolchain is available.
+
+On Linux or macOS:
+
+```sh
+command -v moon
+moon version --all
+```
+
+On Windows PowerShell:
+
+```powershell
+Get-Command moon -ErrorAction SilentlyContinue
+moon version --all
+```
+
+If `moon` is already available, do not reinstall the toolchain. Continue with the project.
+
+## Install MoonBit when missing
+
+Detect the user's operating system and use the appropriate official installer.
+
+### Linux and macOS
+
+```sh
+curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+```
+
+### Windows PowerShell
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+```
+
+Do not ask the user to install MoonBit manually when the environment allows the installer command to be executed directly.
+
+After installation, verify:
+
+```sh
+moon version --all
+```
+
+If installation succeeds but the current shell still cannot find `moon`, refresh the shell environment or update `PATH` as instructed by the installer, then verify again. Do not repeatedly reinstall MoonBit to solve a stale `PATH`.
+
+## China network fallback
+
+If the user is in mainland China, the execution environment is known to use CN network access, or the `.com` installer endpoint fails because of regional network access, replace:
+
+```text
+cli.moonbitlang.com
+```
+
+with:
+
+```text
+cli.moonbitlang.cn
+```
+
+Linux and macOS:
+
+```sh
+curl -fsSL https://cli.moonbitlang.cn/install/unix.sh | bash
+```
+
+Windows PowerShell:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.cn/install/powershell.ps1 | iex
+```
+
+After installing through either endpoint, verify the actual installed toolchain rather than assuming installation succeeded:
+
+```sh
+moon version --all
+```
+
+Do not continue to `moon update`, `moon check`, `moon test`, `moonx`, Web builds, or FoloToy firmware builds until the `moon` command is available.
+
+---
+
+# 13. Build workflow
+
+Do not assume moon or moonx is already installed. Complete the toolchain check above before running project commands.
 
 After implementation:
 
@@ -955,7 +1041,7 @@ Do not stop at "the code looks right".
 
 ---
 
-# 13. Web Host
+# 14. Web Host
 
 Validate the portable application first through Web.
 
@@ -1000,7 +1086,7 @@ Do not edit `passport-host.js` to fix application behavior.
 
 ---
 
-# 14. FoloToy firmware
+# 15. FoloToy firmware
 
 Before building:
 
@@ -1054,7 +1140,7 @@ The application should own none of these things.
 
 ---
 
-# 15. Host dependency resolution
+# 16. Host dependency resolution
 
 A normal app does not need to vendor the FoloToy repository.
 
@@ -1077,7 +1163,7 @@ Do not add a submodule just because a reference template happens to contain one.
 
 ---
 
-# 16. Flashing
+# 17. Flashing
 
 Building firmware and flashing firmware are separate actions.
 
@@ -1099,7 +1185,7 @@ Do not claim physical success until the firmware has actually been flashed and e
 
 ---
 
-# 17. Firmware-size discipline
+# 18. Firmware-size discipline
 
 Device build output reports values such as:
 
@@ -1133,7 +1219,7 @@ Code complexity and firmware size are not the same thing.
 
 ---
 
-# 18. Optimize for the user's product, not the template
+# 19. Optimize for the user's product, not the template
 
 Do not copy architectural complexity from another application unless this product requires it.
 
@@ -1166,7 +1252,7 @@ The SDK should not dictate product imagination.
 
 ---
 
-# 19. One-shot implementation behavior for Codex
+# 20. One-shot implementation behavior for Codex
 
 When a user gives an idea, do not respond by asking:
 
@@ -1194,7 +1280,7 @@ Even then, if a safe and useful default exists, prefer making progress.
 
 ---
 
-# 20. Work in this order
+# 21. Work in this order
 
 For a new product:
 
@@ -1230,7 +1316,7 @@ Start from the user's product.
 
 ---
 
-# 21. What "done" means
+# 22. What "done" means
 
 A successful supported request should ideally leave the user with:
 
@@ -1270,7 +1356,7 @@ Never replace a missing evidence category with another one.
 
 ---
 
-# 22. Public API quick reference
+# 23. Public API quick reference
 
 ## Core
 
@@ -1361,7 +1447,7 @@ position
 
 ---
 
-# 23. Final rule
+# 24. Final rule
 
 The user's idea is the application.
 
