@@ -94,7 +94,7 @@ fn draw_state_reference(
     battery_text,
     x=(120 - design_text_width(battery_text) - 2).max(0),
     y=2,
-    hud_color,
+    color=hud_color,
   )
 }
 
