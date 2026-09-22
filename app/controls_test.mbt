@@ -111,7 +111,7 @@ test "draw presents a changing logical frame" {
 ///|
 /// Cheap change detector over a frame view: sums RGB565 rows.
 fn frame_digest(view : @graphics.FrameView) -> Int {
-  let row : FixedArray[Int] = FixedArray::make(120, 0)
+  let row : FixedArray[Int] = FixedArray::make(view.width(), 0)
   let mut digest = 0
   for y in 0..<view.height() {
     let n = view.copy_rgb565_row(y~, out=row)
