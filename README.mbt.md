@@ -7,7 +7,7 @@ The template currently includes **Forest Walk** as a complete example with graph
 The current SDK/CLI dependency is:
 
 ```text
-colmugx/ai-passport@0.2.5
+colmugx/ai-passport@0.2.6
 ```
 
 ## Start here
@@ -25,7 +25,7 @@ moon test
 Run the application in the Web Host:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.2.5 dev
+moonx colmugx/ai-passport/cmd/passport@0.2.6 dev
 ```
 
 Then open:
@@ -37,8 +37,8 @@ http://127.0.0.1:8000/index.html
 Build the same MoonBit application for the physical FoloToy AI Passport Host:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.2.5 doctor --host folotoy-ai-passport
-moonx colmugx/ai-passport/cmd/passport@0.2.5 build --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.2.6 doctor --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@0.2.6 build --host folotoy-ai-passport
 ```
 
 The build creates:
@@ -212,7 +212,7 @@ headerless
 ```moonbit
 rule(
   name: "passport-sounds",
-  command: "moonx colmugx/ai-passport/cmd/passport@0.2.5 generate-sounds $input $output",
+  command: "moonx colmugx/ai-passport/cmd/passport@0.2.6 generate-sounds $input $output",
 )
 
 dev_build(
@@ -318,8 +318,8 @@ Without a `hostDependencies` override, the Passport CLI resolves its pinned Folo
 To create a Web bundle without starting the development server:
 
 ```sh
-moonx colmugx/ai-passport/cmd/passport@0.2.5 doctor --host web
-moonx colmugx/ai-passport/cmd/passport@0.2.5 build --host web
+moonx colmugx/ai-passport/cmd/passport@0.2.6 doctor --host web
+moonx colmugx/ai-passport/cmd/passport@0.2.6 build --host web
 ```
 
 The generated Web workspace contains the application Wasm, Host files, sound bank, and declared assets.
