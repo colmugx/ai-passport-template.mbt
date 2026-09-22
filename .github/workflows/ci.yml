@@ -29,7 +29,7 @@ jobs:
       # .mooncakes (moon update alone only refreshes the index).
       - name: Resolve the published dependencies
         run: |
-          grep -q 'colmugx/ai-passport@0.1.4' moon.mod
+          grep -q 'colmugx/ai-passport@0.2.0' moon.mod
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/web/index.html
@@ -50,7 +50,7 @@ jobs:
 
       - name: Web build through the published SDK CLI
         run: |
-          moonx colmugx/ai-passport/cmd/passport@0.1.4 build --host web
+          moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host web
           test -f .passport/web/app.wasm
           test -f .passport/web/index.html
           test -f .passport/web/passport-host.js
@@ -85,7 +85,7 @@ jobs:
 
       - name: Resolve the published dependencies
         run: |
-          grep -q 'colmugx/ai-passport@0.1.4' moon.mod
+          grep -q 'colmugx/ai-passport@0.2.0' moon.mod
           moon update
           moon check --target native
           test -f .mooncakes/colmugx/ai-passport/hosts/folotoy/ai-passport/main/app_main.c
@@ -97,7 +97,7 @@ jobs:
         run: |
           set -eo pipefail
           . /opt/esp/idf/export.sh
-          moonx colmugx/ai-passport/cmd/passport@0.1.4 build --host folotoy-ai-passport | tee /tmp/device-build.log
+          moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host folotoy-ai-passport | tee /tmp/device-build.log
           test -f .passport/folotoy-ai-passport/build/ai_passport_app.bin
           grep -q "folotoy-ai-passport dependency:" /tmp/device-build.log
           size=$(stat -c %s .passport/folotoy-ai-passport/build/ai_passport_app.bin)
