@@ -33,6 +33,23 @@ pub fn foreground_scroll_offset(scroll : Int) -> Int {
 ///|
 /// Forest Walk keeps its authored 120x160 design coordinate system. The
 /// 240x320 SDK Canvas is a 2x presentation surface only.
+fn draw_scaled_pixel(
+  canvas : @graphics.Canvas,
+  x : Int,
+  y : Int,
+  scale : Int,
+  color : @core.Color,
+) -> Unit {
+  let px = x * scale
+  let py = y * scale
+  for dy in 0..<scale {
+    for dx in 0..<scale {
+      canvas.pixel(x=px + dx, y=py + dy, color~)
+    }
+  }
+}
+
+///|
 fn draw_design_pixel(
   canvas : @graphics.Canvas,
   x : Int,
@@ -56,8 +73,9 @@ fn draw_indexed_layer(
   layer~ : IndexedLayer,
   scroll_x~ : Int,
 ) -> Unit {
-  let columns = (canvas.width() / 2).min(layer.width)
-  let rows = (canvas.height() / 2).min(layer.height)
+  let scale = layer.scale
+  let columns = (canvas.width() / scale).min(layer.width)
+  let rows = (canvas.height() / scale).min(layer.height)
   let palette = layer.palette
   let indices = layer.indices
   let transparent = layer.transparent_index
@@ -72,7 +90,7 @@ fn draw_indexed_layer(
       if skip {
         continue
       }
-      draw_design_pixel(canvas, x, y, palette[index])
+      draw_scaled_pixel(canvas, x, y, scale, palette[index])
     }
   }
 }
