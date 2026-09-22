@@ -58,7 +58,7 @@ fn draw_design_text(
   text : String,
   x~ : Int,
   y~ : Int,
-  color : @core.Color,
+  color~ : @core.Color,
 ) -> Unit {
   let mut cx = x
   for ch in text {
@@ -135,6 +135,6 @@ pub fn State::draw(
     battery_text,
     x=(120 - design_text_width(battery_text) - 2).max(0),
     y=2,
-    hud_color,
+    color=hud_color,
   )
 }
