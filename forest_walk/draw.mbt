@@ -4,9 +4,9 @@ const FAIRY_X : Int = 26
 
 ///|
 /// Ground line under the fairy's feet, chosen on the forest_world road
-/// surface. The scenery is stored as 120x160 indexed samples and presented
-/// at 2x onto the 240x320 Canvas; 252 puts her feet on the road's lower half.
-const FAIRY_BASELINE_Y : Int = 252
+/// surface in the original 120x160 design space; 126 puts her feet on the
+/// road's lower half before the scene is presented at 2x.
+const FAIRY_BASELINE_Y : Int = 126
 
 ///|
 fn battery_label(battery_percent : Int?) -> String {
@@ -50,12 +50,20 @@ pub fn State::draw(
   )
   draw_indexed_layer(canvas~, layer=self.world_layer, scroll_x=scroll)
   let sheet = self.walker_sheet
-  canvas.sprite(
-    sheet~,
-    frame=self.walker_frame,
-    x=FAIRY_X,
-    y=(FAIRY_BASELINE_Y - sheet.frame_height()).max(0),
-  )
+  let frame_base = self.walker_frame * sheet.frame_width * sheet.frame_height
+  let fairy_y = (FAIRY_BASELINE_Y - sheet.frame_height).max(0)
+  for sy in 0..<sheet.frame_height {
+    for sx in 0..<sheet.frame_width {
+      let index = sheet.indices[
+        frame_base + sy * sheet.frame_width + sx
+      ].to_int()
+      match sheet.palette[index] {
+        Some(color) =>
+          draw_design_pixel(canvas, FAIRY_X + sx, fairy_y + sy, color)
+        None => ()
+      }
+    }
+  }
   draw_indexed_layer(
     canvas~,
     layer=self.foreground_layer,
@@ -64,10 +72,22 @@ pub fn State::draw(
   let battery_text = battery_label(battery_percent)
   // Four logical pixels of right margin keep the text clear of the four
   // 4x4 rounded-corner occlusion regions while y=4 clears the top strip.
-  canvas.text(
-    text=battery_text,
-    x=(canvas.width() - @graphics.text_width(text=battery_text) - 4).max(0),
-    y=4,
-    color=@core.Color::rgb(r=31, g=51, b=53),
-  )
+  let text_width = @graphics.text_width(text=battery_text)
+  let text_canvas = @graphics.Canvas::new(width=text_width, height=6)
+  let hud_color = @core.Color::rgb(r=31, g=51, b=53)
+  text_canvas.text(text=battery_text, x=0, y=0, color=hud_color)
+  let row : FixedArray[Int] = FixedArray::make(text_width, 0)
+  for y in 0..<5 {
+    let _ = text_canvas.frame_view().copy_rgb565_row(y~, out=row)
+    for x in 0..<text_width {
+      if row[x] == hud_color.to_rgb565() {
+        draw_design_pixel(
+          canvas,
+          120 - text_width - 2 + x,
+          2 + y,
+          hud_color,
+        )
+      }
+    }
+  }
 }
