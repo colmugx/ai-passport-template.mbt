@@ -77,9 +77,10 @@ fn draw_indexed_layer(
         Some(t) => index == t
         None => false
       }
-      if not(skip) {
-        canvas.pixel(x~, y~, color=palette[index])
+      if skip {
+        continue
       }
+      canvas.pixel(x~, y~, color=palette[index])
     }
   }
 }
