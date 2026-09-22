@@ -1,144 +1,164 @@
 ---
-
 name: ai-passport-firmware-development
-description: Turn product ideas into portable MoonBit applications and FoloToy AI Passport firmware using colmugx/ai-passport. Use when a user asks to create, implement, modify, debug, build, or flash an AI Passport app, game, toy, utility, interactive experience, animation, or sound-based experience.
+description: Turn product ideas into portable MoonBit applications and FoloToy AI Passport firmware using colmugx/ai-passport. Use when a user asks to create, implement, modify, debug, build, or flash an AI Passport app, game, toy, utility, interactive experience, animation, audio experience, microphone-reactive experience, or low-power experience.
 ---
 
 # AI Passport Firmware Development
 
 Use `colmugx/ai-passport` to turn a user's product idea into a working AI Passport application.
 
-The user is describing a **product**, not an SDK implementation.
+The user is describing a product, not an SDK implementation. Translate the idea into SDK capabilities yourself. Do not require the user to understand MoonBit, Hosts, `Application`, RGB565, PCM, ESP-IDF, or firmware structure.
 
-They may say:
+Prefer completing a coherent product over asking implementation questions. Choose sensible defaults when details such as colors, frame rate, menu layout, or exact button mapping are unspecified.
 
-* "Make a virtual pet."
-* "Make a meditation timer."
-* "Make Snake."
-* "Make something weird that reacts to the buttons."
-* "Make a music toy."
-* "Make a pocket oracle."
-* "Make a game where I raise a mushroom."
-* "I have no idea, surprise me."
+## 1. Inspect the project before coding
 
-Translate that intent into the AI Passport SDK yourself.
+For an existing project, inspect at least:
 
-Do not require the user to understand MoonBit, Hosts, `Application`, frame timing, RGB565, PCM, ESP-IDF, or firmware structure.
+- `moon.mod`
+- `passport.toml`
+- the package named by `entry`
+- `.gitignore`
+- existing tests
+- sound declarations and the generated-sound package, if present
 
-## Goal
+Read the exact `colmugx/ai-passport@VERSION` from `moon.mod` and use the same version for every `moonx colmugx/ai-passport/cmd/passport@VERSION` command.
 
-When the required SDK capabilities exist, finish with a real downstream application that can be built for:
+Do not assume an old SDK shape. The current template uses AI Passport 0.2.0, but an existing downstream project may intentionally use another version.
 
-```text id="tgt1"
-web
-folotoy-ai-passport
+## 2. Ensure the MoonBit toolchain exists
+
+Do not assume `moon` or `moonx` is installed.
+
+On Linux or macOS:
+
+```sh
+command -v moon
+moon version --all
 ```
 
-using the same MoonBit application semantics.
+On Windows PowerShell:
 
-Prefer completing the application over asking implementation questions.
+```powershell
+Get-Command moon -ErrorAction SilentlyContinue
+moon version --all
+```
 
-Choose reasonable product defaults when details are unspecified.
+If `moon` already exists, do not reinstall it.
 
-Ask the user only when missing information fundamentally changes the product or when required external content cannot reasonably be invented.
+If it is missing, install the official toolchain.
 
----
+Linux and macOS:
 
-# 1. First understand the idea
+```sh
+curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+```
 
-Convert the user's request internally into an application specification.
+Windows PowerShell:
 
-Do not make the user fill this form.
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+```
 
-Derive:
+If the user is in mainland China, the environment is known to use CN network access, or the `.com` endpoint fails because of regional access, replace `cli.moonbitlang.com` with `cli.moonbitlang.cn`.
 
-```text id="spec1"
-product name
-product purpose / fantasy
+Linux and macOS CN endpoint:
+
+```sh
+curl -fsSL https://cli.moonbitlang.cn/install/unix.sh | bash
+```
+
+Windows PowerShell CN endpoint:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.cn/install/powershell.ps1 | iex
+```
+
+After installation, verify again:
+
+```sh
+moon version --all
+```
+
+If installation succeeded but the current shell cannot find `moon`, refresh the shell environment or PATH as instructed by the installer. Do not repeatedly reinstall the toolchain to solve a stale PATH.
+
+Do not continue to project checks or Host builds until `moon` is available.
+
+## 3. Translate the product idea into capabilities
+
+Internally derive:
+
+```text
+product purpose
 main interaction loop
-screens or states
-UP behavior
-DOWN behavior
-OK behavior
+screens / states
+Up behavior
+Down behavior
+Ok behavior
+click / double-click / long-press behavior
 time-based behavior
 visual style
-animation needs
-sound needs
+sound playback needs
+microphone input needs
 battery relevance
+backlight behavior
+sleep / wake behavior
 persistent-data needs
-network needs
-Bluetooth needs
-microphone needs
+network / BLE needs
 external assets
 ```
 
-For example:
+Do not make the user fill out this checklist.
 
-```text id="spec2"
-User:
-"Make me a tiny aquarium where I take care of a jellyfish."
+Start from the user's product fantasy and map it to the SDK. Do not start from Forest Walk, Pocket Breather, or another example application.
 
-Derived:
-- one main aquarium screen
-- jellyfish has mood / hunger state
-- UP changes food
-- DOWN changes aquarium decoration
-- OK feeds jellyfish
-- idle animation driven by monotonic time
-- pixel-art jellyfish rendered with sprites/primitives
-- optional feeding sound
-- battery shown subtly
-- session-only state unless persistence becomes available
+## 4. AI Passport 0.2 capability map
+
+### Display and graphics
+
+Applications can query the active display:
+
+```moonbit
+let info = @graphics.display_info()
+let canvas = @graphics.Canvas::for_display()
 ```
 
-The application architecture comes **after** the product model.
+`DisplayInfo` contains:
 
----
-
-# 2. Know what AI Passport v0.1 can actually do
-
-Before implementing an idea, map it onto the public SDK.
-
-The portable application surface currently provides these capabilities.
-
-## Display
-
-Logical display:
-
-```text id="cap-display"
-120 × 160
-RGB565
+```text
+width
+height
+monochrome
+has_backlight
 ```
 
-Use:
+The current Web and FoloToy Hosts expose a 240×320 drawing surface. Do not hard-code that as a universal future Host assumption when `display_info()` can supply the dimensions.
 
-```moonbit id="api-display"
-@graphics.Canvas::logical()
+Prefer `Canvas::for_display()` for product applications. `Canvas::logical()` currently uses the SDK default 240×320 dimensions, while `Canvas::new(width~, height~)` creates an explicitly sized canvas.
 
-canvas.clear(...)
-canvas.pixel(...)
-canvas.line(...)
-canvas.rect(...)
-canvas.fill_rect(...)
-canvas.sprite(...)
-canvas.text(...)
+Drawing primitives include:
 
-canvas.frame_view()
+```text
+clear
+pixel
+line
+rect
+fill_rect
+sprite
+text
 ```
 
-Colors:
+Colors are authored with:
 
-```moonbit id="api-color"
+```moonbit
 @core.Color::rgb(r=..., g=..., b=...)
 ```
 
-### Built-in text
+and are presented as RGB565 on the current color Hosts.
 
-The built-in font is intentionally tiny.
+The built-in bitmap font supports:
 
-Supported glyphs:
-
-```text id="glyphs"
+```text
 A-Z
 0-9
 space
@@ -149,151 +169,122 @@ space
 !
 ```
 
-Lowercase renders as uppercase.
+Lowercase renders as uppercase. Unknown glyphs consume advance width but draw nothing. Do not assume Chinese, Japanese, emoji, arbitrary Unicode, or arbitrary fonts work through `Canvas::text`. For unsupported glyphs, provide application-owned bitmap/sprite art.
 
-Do not assume Chinese, Japanese, emoji, Unicode, arbitrary fonts, or rich typography work through `Canvas::text`.
+For pixel art, convert source art into MoonBit sprite data outside the runtime rather than adding image decoders to firmware.
 
-If the product requires other glyphs, render custom bitmap glyphs as application graphics/sprites.
+### Backlight
 
-## Sprites
+Backlight is an optional display capability:
 
-Use:
-
-```moonbit id="api-sprite"
-@graphics.SpriteSheet::from_colors(...)
-canvas.sprite(...)
+```moonbit
+let current = @graphics.backlight_level()
+let changed = @graphics.set_backlight(50)
 ```
 
-Sprite pixels are:
+`backlight_level()` returns `None` for a display without a light.
 
-```text id="spritepix"
-Color? 
-Some(color) = visible pixel
-None        = transparent pixel
-```
+`set_backlight(level)` accepts `0..100` and returns `false` when the Host has no backlight.
 
-For substantial pixel art, prefer generating MoonBit sprite data rather than manually writing thousands of pixels.
+Prefer checking `display_info().has_backlight` when backlight behavior is part of the product. Lack of a backlight is a valid Host capability combination, not an error.
 
-Generated art remains application data, not Host code.
+### Buttons and gestures
 
-## Buttons
+Portable buttons are exactly:
 
-Portable applications receive exactly:
-
-```text id="buttons"
+```text
 Up
 Down
 Ok
 ```
 
-They are semantic buttons.
+Never use GPIO or ADC identities in application code.
 
-Use:
+AI Passport 0.2 exposes both the compatibility edge callback and semantic gesture events:
 
-```moonbit id="api-input"
-@input.InputState::new()
-press(...)
-release(...)
-pressed(...)
-just_pressed(...)
-just_released(...)
-advance()
+```moonbit
+button(Self, @input.Button, Bool) -> Unit
+
+button_event(
+  Self,
+  @input.Button,
+  @input.ButtonEvent,
+) -> Unit
 ```
 
-Never use GPIO numbers in application code.
+`ButtonEvent` values are:
 
-Design the product around three controls.
-
-Useful mappings include:
-
-```text id="patterns-input"
-UP / DOWN = selection or adjustment
-OK        = confirm / action
-
-UP        = move
-DOWN      = move
-OK        = jump / fire
-
-UP / DOWN = previous / next
-OK        = enter / toggle
-
-UP        = primary action
-DOWN      = secondary action
-OK        = mode switch
+```text
+Press
+Click
+DoubleClick
+LongPress
 ```
 
-The product decides the semantics.
+Use `button_event` when the product asks for click, double-click, or long-press semantics.
 
-## Time
+Use `button` and `InputState` when the product specifically needs lower-level press/release state such as held movement.
+
+Do not reconstruct click, double-click, or long-press recognition with application timers when the Host already supplies semantic events.
+
+On the Web Host, gesture recognition uses independent per-button state with:
+
+```text
+double-click window: 300 ms
+long-press threshold: 1500 ms
+```
+
+The FoloToy Host forwards the recognized button events produced by its pinned BSP.
+
+Do not design portable physical button chords for the FoloToy AI Passport. Its three buttons share one ADC ladder and simultaneous button combinations cannot be identified reliably.
+
+### Time
 
 Each update receives:
 
-```moonbit id="api-time"
+```moonbit
 FrameContext {
-  now_us
-  presentation_lead_us
+  now_us : Int64
+  presentation_lead_us : Int64
 }
 ```
 
 `now_us` is monotonic Host time in microseconds.
 
-Use differences between timestamps.
+Use deltas:
 
-Never use the absolute value as elapsed application time.
-
-Typical rule:
-
-```text id="time-rule"
+```text
 first update:
-    remember now_us
-    elapsed = 0
+  remember now_us
+  elapsed = 0
 
 later:
-    delta = max(now_us - previous_now_us, 0)
+  delta = max(now_us - previous_now_us, 0)
 ```
 
-Use this for:
+Use this for animation, timers, cooldowns, games, physics, blinking, breathing, and state transitions.
 
-* animation
-* timers
-* games
-* cooldowns
-* blinking
-* breathing
-* idle behavior
-* physics
-* state transitions
+The application owns its simulation policy. Use a fixed-step accumulator when gameplay or simulation must not depend on Host frame rate.
 
-The application decides its own simulation rate.
+`presentation_lead_us` is a Host calibration fact for playback-position-driven presentation. Use it when needed without checking Host identity.
 
-It does not need to update game logic exactly once per Host frame.
+### Battery
 
-## Battery
+`render` receives:
 
-`Application.render` receives:
-
-```moonbit id="api-battery"
+```moonbit
 battery_percent : Int?
 ```
 
-Meaning:
+`Some(0..100)` is a Host reading and `None` means unavailable.
 
-```text id="battery-meaning"
-Some(0..100) = Host reading
-None         = unavailable
-```
+Do not invent device battery APIs or fake readings in product code.
 
-Use it directly when battery matters to the product.
+### Sound playback
 
-Do not invent device-specific battery code.
+Packaged sound resources use typed `Sound` values and independent `Playback` handles:
 
-## Sound
-
-AI Passport supports prebuilt sound resources.
-
-Public runtime API:
-
-```moonbit id="api-audio"
+```moonbit
 @audio.play(sound, looping=...)
 @audio.pause(playback)
 @audio.resume(playback)
@@ -301,33 +292,13 @@ Public runtime API:
 @audio.position(playback)
 ```
 
-`play` returns:
+A `Sound` is a resource. A `Playback` is one live playback instance.
 
-```text id="playback"
-Playback?
-```
-
-A `Sound` is a resource.
-
-A `Playback` is one live playback instance.
-
-These are not the same object.
-
-### Portable playback budget
-
-The physical FoloToy Host provides four independent playback slots.
-
-The Web Host currently provides eight.
-
-For portable applications, design around **at most four simultaneous playbacks**.
-
-Never assume Web's eight-slot capacity on hardware.
-
-### Sound format
+The FoloToy Host provides four playback slots. The Web Host currently provides eight. Design portable applications around at most four simultaneous playbacks.
 
 Sound source files must already be:
 
-```text id="pcm"
+```text
 signed PCM16
 little-endian
 mono
@@ -335,54 +306,82 @@ mono
 headerless
 ```
 
-The SDK does not provide:
+The SDK does not decode MP3, WAV, Ogg, or MIDI and does not provide synthesis, resampling, sequencing, or streaming sound sources.
 
-* MP3 decoding
-* WAV decoding
-* Ogg decoding
-* MIDI playback
-* synthesis
-* oscillators
-* resampling
-* sequencing
-* streaming audio
+A no-audio application should return `None` from `audio_output()`. Do not create fake volume or mute state.
 
-Prepare media outside the SDK.
+### Microphone capture
 
-### Master audio output
+AI Passport 0.2 exposes portable microphone capture:
 
-Applications optionally return:
-
-```moonbit id="audiooutput"
-Some({
-  volume: 0..100,
-  muted: Bool,
-})
+```moonbit
+@audio.capture_start()
+@audio.capture_status()
+@audio.capture_read(buffer)
+@audio.capture_stop()
+@audio.capture_dropped_samples()
 ```
 
-or:
+Capture samples are signed PCM16 mono at:
 
-```moonbit id="noaudio"
-None
+```moonbit
+@audio.CAPTURE_SAMPLE_RATE_HZ // 16000
 ```
 
-A product with no sound should simply return `None`.
+`CaptureStatus` is:
 
-Do not invent fake audio state.
+```text
+Unavailable
+Idle
+Requesting
+Recording
+Denied
+Failed
+```
 
----
+On Web, `capture_start()` may return `Requesting` while browser permission is pending. Poll `capture_status()` before reading.
 
-# 3. Know what is NOT currently a portable application capability
+Call `capture_read` only while status is `Recording` and provide a non-empty `FixedArray[Int]`.
 
-Do not invent APIs that do not exist.
+Use `capture_dropped_samples()` when sample loss matters to the product.
 
-The current public application SDK does not expose portable APIs for:
+Microphone capture enables products such as audio meters, clap/sound-reactive toys, simple audio analysis, and microphone-driven game mechanics.
 
-```text id="unsupported"
+Microphone capture does not imply persistent recording storage. The portable SDK still has no filesystem or persistent key-value storage API.
+
+### Power and wake
+
+AI Passport 0.2 exposes application-requested sleep:
+
+```moonbit
+@power.request_sleep()
+@power.request_timed_sleep(ms)
+@power.wake_reason()
+```
+
+`WakeReason` values are:
+
+```text
+Button
+Timer
+Other
+```
+
+`request_timed_sleep(ms)` accepts 1 through 86,400,000 milliseconds.
+
+Sleep takes effect after the current presented frame.
+
+On FoloToy this maps to ESP32-C3 light sleep. Application state and playback positions survive. The Host turns the backlight off while asleep and restores the previous light level after wake. Microphone capture stops and must be requested again if the product still needs it.
+
+The Web Host simulates the same portable application lifecycle; it does not claim to control computer hardware power.
+
+### Capabilities not currently exposed to portable applications
+
+Do not invent public APIs for:
+
+```text
 Wi-Fi / HTTP / Internet access
 Bluetooth / BLE
-microphone input
-recording
 persistent key-value storage
 filesystem access
 RTC / wall-clock date and time
@@ -394,91 +393,37 @@ dynamic downloadable content
 generic application file loading
 ```
 
-The FoloToy Host currently leaves Wi-Fi and BLE uninitialized.
+The FoloToy hardware may physically contain capabilities that are not exposed through the portable SDK. Do not bypass the SDK by moving product behavior into Host or ESP-IDF code.
 
-Therefore:
+If an unsupported capability is peripheral, implement the useful supported product and report the limitation. If it is the core requirement, identify the missing SDK capability instead of fabricating an implementation.
 
-### Supported idea
+## 5. Create a downstream project, not an SDK patch
 
-```text id="idea-supported"
-"Make a Tamagotchi-like pet."
+A normal product is an independent MoonBit module that depends on the published SDK.
+
+Do not put application semantics into `ai-passport.mbt`.
+
+Do not require `ai-passport-template.mbt`; it is reference material.
+
+For a new standalone project, a conventional layout is:
+
+```text
+moon.mod
+passport.toml
+src/
+  app/
+    app.mbt
+    app_wbtest.mbt
+    moon.pkg
 ```
 
-Yes.
+For an existing project or a project created from the template, preserve its existing MoonBit source-root layout instead of moving packages gratuitously.
 
-Use state, time, buttons, graphics and optional bundled sounds.
+A new `moon.mod` can use:
 
-### Supported with limitation
-
-```text id="idea-session"
-"Make a todo list."
-```
-
-Possible as an in-session experience.
-
-Persistent todos are not currently supported by the portable application API.
-
-### Not currently implementable as requested
-
-```text id="idea-weather"
-"Show live weather."
-```
-
-Live network data requires a portable networking capability that does not currently exist.
-
-### Not currently implementable as requested
-
-```text id="idea-ble"
-"Make a Bluetooth radar."
-```
-
-BLE is not exposed to portable applications.
-
-### Not currently implementable as requested
-
-```text id="idea-voice"
-"Make a voice recorder."
-```
-
-Microphone/recording is not exposed to portable applications.
-
-Do not bypass these limitations by placing product logic directly into the FoloToy Host.
-
-That would stop being a portable AI Passport application.
-
-If an unsupported capability is peripheral to the idea, implement the useful supported product without it and clearly report the limitation.
-
-If it is the core product, identify the missing SDK capability instead of fabricating an implementation.
-
----
-
-# 4. Do not start inside the SDK repository
-
-A normal product is an independent downstream MoonBit project.
-
-Do not put the app into:
-
-```text id="not-in"
-ai-passport.mbt
-```
-
-and do not require:
-
-```text id="not-required"
-ai-passport-template.mbt
-```
-
-The template is optional reference material.
-
-A normal application should depend on the published SDK.
-
-For the current v0.1 baseline:
-
-```moonbit id="moonmod"
+```moonbit
 name = "OWNER/APP"
-
 version = "0.0.1"
-
 source = "src"
 
 import {
@@ -486,332 +431,87 @@ import {
 }
 ```
 
-When working in an existing project, use the SDK version already declared by that project unless the user explicitly requests an upgrade.
-
-Keep the SDK and CLI co-versioned.
-
----
-
-# 5. Minimal project
-
-For most applications start here:
-
-```text id="tree-min"
-my-app/
-├── .gitignore
-├── moon.mod
-├── passport.toml
-└── src/
-    └── app/
-        ├── app.mbt
-        ├── app_wbtest.mbt
-        └── moon.pkg
-```
-
 `passport.toml`:
 
-```toml id="passport-min"
+```toml
 entry = "app"
 ```
 
-`src/app/moon.pkg`:
+The entry is relative to the module source root.
 
-```moonbit id="pkg-min"
-import {
-  "colmugx/ai-passport/application",
-  "colmugx/ai-passport/core",
-  "colmugx/ai-passport/graphics",
-  "colmugx/ai-passport/input",
-}
+Generated Host adapters belong at:
+
+```text
+<source-root>/passport-generated/
 ```
 
-Recommended `.gitignore`:
+Host build workspaces belong at:
 
-```gitignore id="gitignore-min"
-_build/
-.mooncakes/
+```text
 .passport/
-src/passport-generated/
 ```
 
-Do not add audio, assets, external Host dependencies, generated packages, or extra build machinery unless the product requires them.
+Do not hand-edit either.
 
----
+## 6. Implement the Application contract
 
-# 6. Minimal Application wiring
+The entry package implements:
 
-Every application implements:
-
-```moonbit id="contract"
+```moonbit
 @application.Application
 ```
 
-with:
+and exports:
 
-```text id="contract-methods"
-update
-button
-render
-audio_output
-```
-
-and exposes:
-
-```moonbit id="entryfn"
+```moonbit
 pub fn passport_main() -> &@application.Application
 ```
 
-A typical application shape is:
+The current contract is:
 
-```moonbit id="app-shape"
+```text
+update(Self, FrameContext) -> Unit
+button(Self, Button, Bool) -> Unit
+button_event(Self, Button, ButtonEvent) -> Unit   // default implementation exists
+render(Self, Int?) -> FrameView
+audio_output(Self) -> AudioOutput?
+```
+
+Keep concrete product state private unless another package genuinely needs it.
+
+A typical app owns:
+
+```moonbit
 priv struct App {
   canvas : @graphics.Canvas
-  input : @input.InputState
   mut last_now_us : Int64?
   // product state...
 }
 ```
 
-Keep the concrete product state private unless another package genuinely needs it.
+Construct the display canvas after Host boot, normally with:
 
-The public integration surface usually only needs:
-
-```moonbit id="public-surface"
-passport_main()
+```moonbit
+canvas: @graphics.Canvas::for_display()
 ```
 
-### update
+Use `update` for time and simulation, `button` / `button_event` for input, and `render` only to draw current state.
 
-Use `update` for:
+Do not advance simulation from `render`.
 
-* elapsed time
-* simulation
-* state machines
-* animation
-* timers
-* applying latched input
+## 7. Add sounds only when needed
 
-### button
+Declare sounds in `passport.toml`:
 
-Use `button` to receive semantic transitions:
-
-```moonbit id="button-wiring"
-if pressed {
-  self.input.press(button)
-} else {
-  self.input.release(button)
-}
-```
-
-### render
-
-Use `render` to draw current state.
-
-Rendering should normally not change simulation state.
-
-Return:
-
-```moonbit id="frame"
-self.canvas.frame_view()
-```
-
-### audio_output
-
-No sound:
-
-```moonbit id="audio-none"
-None
-```
-
-Sound-enabled product:
-
-```moonbit id="audio-some"
-Some({
-  volume: self.volume,
-  muted: self.muted,
-})
-```
-
----
-
-# 7. Translate product concepts into SDK primitives
-
-Codex should perform this translation automatically.
-
-## Menus
-
-Use:
-
-```text id="recipe-menu"
-state:
-  selected item
-
-UP:
-  previous item
-
-DOWN:
-  next item
-
-OK:
-  activate
-
-graphics:
-  text + rect + fill_rect
-```
-
-## Animated toy
-
-Use:
-
-```text id="recipe-toy"
-state:
-  mood
-  animation phase
-  interaction counters
-
-time:
-  FrameContext.now_us deltas
-
-graphics:
-  SpriteSheet or primitives
-
-buttons:
-  interactions
-
-optional:
-  PCM sound effects
-```
-
-## Timer
-
-Use:
-
-```text id="recipe-timer"
-state:
-  running
-  accumulated_us
-  duration
-
-update:
-  accumulate monotonic delta while running
-
-OK:
-  start/pause
-
-UP/DOWN:
-  adjust duration
-```
-
-## Game
-
-Keep game simulation in MoonBit.
-
-Typical state:
-
-```text id="recipe-game"
-player
-enemies
-score
-mode
-elapsed time
-random/game state if needed
-```
-
-Use a fixed-step accumulator when gameplay should not depend on Host frame rate.
-
-Do not put game mechanics into Web JavaScript or ESP-IDF code.
-
-## Pixel-art application
-
-Prefer:
-
-```text id="recipe-art"
-small generated SpriteSheet data
-limited palette
-clear visual hierarchy
-large interactive targets
-few simultaneous text labels
-```
-
-Remember the display is only 120×160.
-
-## Sound toy
-
-Declare several Sound resources and use independent Playback handles.
-
-Never encode Sound IDs manually.
-
----
-
-# 8. Static art and application assets
-
-`passport.toml` supports ordinary bundled assets:
-
-```toml id="assets"
-[[assets]]
-source = "assets/data.bin"
-bundlePath = "assets/data.bin"
-```
-
-But this is a bundle contract, **not a generic MoonBit filesystem API**.
-
-Do not assume application code can call something like:
-
-```text id="bad-assets"
-open("assets/foo.png")
-```
-
-No such portable application API exists.
-
-For art needed directly by MoonBit rendering, prefer converting it at build/development time into application-owned MoonBit data and creating `SpriteSheet` values.
-
-Examples:
-
-```text id="asset-convert"
-PNG pixel art
-    ↓ conversion tool
-MoonBit Color?/palette data
-    ↓
-SpriteSheet
-```
-
-Do not add image decoding to the firmware merely to display fixed art.
-
----
-
-# 9. Adding sound
-
-Only add this machinery when the product needs audio.
-
-Example:
-
-```text id="audio-tree"
-assets/
-  click.pcm
-  music.pcm
-
-src/
-  sounds/
-    moon.pkg
-```
-
-`passport.toml`:
-
-```toml id="audio-manifest"
-entry = "app"
-
+```toml
 [[sounds]]
 name = "click"
 source = "assets/click.pcm"
-
-[[sounds]]
-name = "music"
-source = "assets/music.pcm"
 ```
 
-`src/sounds/moon.pkg`:
+Create an application-owned package for generated typed Sound values. With packages under `src/`:
 
-```moonbit id="audio-rule"
+```moonbit
 import {
   "colmugx/ai-passport/audio",
 }
@@ -828,206 +528,58 @@ dev_build(
 )
 ```
 
-Import that package from the application:
+Adjust the relative input path when the package layout differs.
 
-```moonbit id="audio-import"
-"OWNER/APP/sounds" @sounds
+Import the generated package as `@sounds` and use typed constructors:
+
+```moonbit
+let click = @audio.play(@sounds.Click)
+let music = @audio.play(@sounds.Music, looping=true)
 ```
 
-Then:
+Never hand-author numeric Sound IDs.
 
-```moonbit id="audio-use"
-let playback = @audio.play(@sounds.Click)
+Looping and playback control belong in application code, not `passport.toml` resource metadata.
 
-let music = @audio.play(
-  @sounds.Music,
-  looping=true,
-)
-```
+## 8. Static art and ordinary assets
 
-Never use:
+`passport.toml` can bundle ordinary files with `[[assets]]`, but that does not create a generic MoonBit filesystem API.
 
-```text id="bad-sound"
-sound id = 0
-sound id = 1
-```
+Do not assume the application can call `open("assets/foo.png")`.
 
-The generated typed Sound mapping owns resource IDs.
+For fixed art used by rendering, prefer converting source images during development into application-owned MoonBit sprite/palette data.
 
----
+## 9. Test product behavior
 
-# 10. Playback-driven animation
+Use MoonBit tests for product semantics.
 
-Only use playback position when the product actually needs audio synchronization.
+`*_test.mbt` is black-box.
 
-Store the particular playback:
+`*_wbtest.mbt` is white-box and can test private application state/helpers.
 
-```text id="sync1"
-Playback
-```
+Do not make internals public only to satisfy tests.
 
-Query:
+Test the requirements that matter for the product, for example:
 
-```moonbit id="sync2"
-@audio.position(playback)
-```
+- screen/state transitions
+- button gestures
+- held-button behavior
+- fixed-step timing boundaries
+- pause/resume behavior
+- animation wraparound
+- backlight level policy
+- microphone status and empty-read behavior
+- sleep request and wake-state logic
+- audio slot/playback failure fallback
+- unavailable battery behavior
 
-If presentation should compensate for physical output latency, use:
+Do not test raw GPIO or browser key codes inside the application package.
 
-```text id="sync3"
-ctx.presentation_lead_us
-```
-
-Do not detect:
-
-```text id="sync-bad"
-web
-folotoy
-browser
-hardware
-```
-
-inside product logic.
-
-If playback position is unavailable, decide a product-appropriate fallback.
-
----
-
-# 11. Test product behavior, not Host internals
-
-Use ordinary MoonBit tests for product semantics.
-
-Use:
-
-```text id="tests"
-*_test.mbt
-```
-
-for black-box package tests.
-
-Use:
-
-```text id="wbtests"
-*_wbtest.mbt
-```
-
-when tests need private application state or helpers.
-
-Do not make application internals public solely so tests can access them.
-
-Good tests depend on the product.
-
-Examples:
-
-```text id="test-examples"
-button navigation wraps correctly
-pause stops elapsed time
-timer reaches zero once
-player cannot leave bounds
-game-over transition is deterministic
-animation phase changes at boundaries
-volume remains in 0..100
-missing playback does not crash app
-None battery renders safely
-```
-
-Do not write tests for GPIO or browser keyboard codes in the application package.
-
-Those belong to Hosts.
-
----
-
-# 12. Ensure the MoonBit toolchain exists
-
-Do not assume the user's machine already has MoonBit installed.
-
-Before running any `moon`, `moonx`, Web Host, or firmware build command, first check whether the MoonBit toolchain is available.
-
-On Linux or macOS:
-
-```sh
-command -v moon
-moon version --all
-```
-
-On Windows PowerShell:
-
-```powershell
-Get-Command moon -ErrorAction SilentlyContinue
-moon version --all
-```
-
-If `moon` is already available, do not reinstall the toolchain. Continue with the project.
-
-## Install MoonBit when missing
-
-Detect the user's operating system and use the appropriate official installer.
-
-### Linux and macOS
-
-```sh
-curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-```
-
-### Windows PowerShell
-
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
-```
-
-Do not ask the user to install MoonBit manually when the environment allows the installer command to be executed directly.
-
-After installation, verify:
-
-```sh
-moon version --all
-```
-
-If installation succeeds but the current shell still cannot find `moon`, refresh the shell environment or update `PATH` as instructed by the installer, then verify again. Do not repeatedly reinstall MoonBit to solve a stale `PATH`.
-
-## China network fallback
-
-If the user is in mainland China, the execution environment is known to use CN network access, or the `.com` installer endpoint fails because of regional network access, replace:
-
-```text
-cli.moonbitlang.com
-```
-
-with:
-
-```text
-cli.moonbitlang.cn
-```
-
-Linux and macOS:
-
-```sh
-curl -fsSL https://cli.moonbitlang.cn/install/unix.sh | bash
-```
-
-Windows PowerShell:
-
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser; irm https://cli.moonbitlang.cn/install/powershell.ps1 | iex
-```
-
-After installing through either endpoint, verify the actual installed toolchain rather than assuming installation succeeded:
-
-```sh
-moon version --all
-```
-
-Do not continue to `moon update`, `moon check`, `moon test`, `moonx`, Web builds, or FoloToy firmware builds until the `moon` command is available.
-
----
-
-# 13. Build workflow
-
-Do not assume moon or moonx is already installed. Complete the toolchain check above before running project commands.
+## 10. Build and validate
 
 After implementation:
 
-```sh id="moon-gates"
+```sh
 moon update
 moon check --output-json
 moon test --output-json
@@ -1035,307 +587,155 @@ moon info
 moon fmt
 ```
 
-Fix all errors before Host builds.
+Fix errors before Host builds.
 
-Do not stop at "the code looks right".
+### Web
 
----
+Use the SDK version from `moon.mod`:
 
-# 14. Web Host
-
-Validate the portable application first through Web.
-
-Use the same CLI version as the SDK dependency.
-
-For v0.2.0:
-
-```sh id="web-build"
-moonx colmugx/ai-passport/cmd/passport@0.2.0 doctor --host web
-moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host web
+```sh
+moonx colmugx/ai-passport/cmd/passport@VERSION doctor --host web
+moonx colmugx/ai-passport/cmd/passport@VERSION build --host web
 ```
-
-Generated Web output:
-
-```text id="web-output"
-.passport/web/
-```
-
-It contains the compiled MoonBit application and SDK-owned Host runtime.
 
 For interactive development:
 
-```sh id="web-dev"
-moonx colmugx/ai-passport/cmd/passport@0.2.0 dev --host web
+```sh
+moonx colmugx/ai-passport/cmd/passport@VERSION dev --host web
 ```
 
-Exercise:
+Exercise relevant product behavior, including gestures, audio, microphone permission states, backlight, and sleep/wake when the application uses them.
 
-```text id="web-check"
-startup
-UP
-DOWN
-OK
-timers
-animations
-screen transitions
-sound when applicable
-battery unavailable/fixture states where relevant
+Do not edit SDK-owned Web Host files to repair product logic.
+
+### FoloToy firmware
+
+```sh
+moonx colmugx/ai-passport/cmd/passport@VERSION doctor --host folotoy-ai-passport
+moonx colmugx/ai-passport/cmd/passport@VERSION build --host folotoy-ai-passport
 ```
 
-Do not edit `passport-host.js` to fix application behavior.
+Current FoloToy Host facts include:
 
----
-
-# 15. FoloToy firmware
-
-Before building:
-
-```sh id="device-doctor"
-moonx colmugx/ai-passport/cmd/passport@0.2.0 doctor --host folotoy-ai-passport
-```
-
-Treat `doctor` as authoritative for missing toolchain/project requirements.
-
-Current v0.1 FoloToy Host uses:
-
-```text id="device-facts"
+```text
 ESP32-C3
 8 MB flash
 no PSRAM
-
+240×320 ST7789P3 display
+adjustable backlight
+Up / Down / Ok semantic buttons
+press / click / double-click / long-press events
+battery gauge
+PCM16 playback
+PCM16 microphone capture
+application-requested light sleep
 ESP-IDF 5.5.3
-
-factory app partition:
-0x380000
-3,670,016 bytes
+factory app partition: 0x380000 = 3,670,016 bytes
 ```
 
-Build:
+The CLI owns ESP-IDF glue, device bridges, BSP integration, generated adapters, and firmware assembly. Application code owns none of these.
 
-```sh id="device-build"
-moonx colmugx/ai-passport/cmd/passport@0.2.0 build --host folotoy-ai-passport
+The build command does not flash.
+
+After a successful build, the generated workspace provides:
+
+```sh
+.passport/folotoy-ai-passport/flash.sh -p PORT
+.passport/folotoy-ai-passport/monitor.sh -p PORT
 ```
 
-The CLI creates:
+Only claim physical validation after actual flashing and on-device exercise.
 
-```text id="device-workspace"
-.passport/folotoy-ai-passport/
-```
+## 11. Host dependency resolution
 
-The CLI owns:
+A normal application does not need to vendor the FoloToy repository.
 
-```text id="device-owned"
-ESP-IDF Host glue
-MoonBit native capture
-display bridge
-button bridge
-battery bridge
-audio backend
-FoloToy BSP integration
-generated application adapter
-firmware build
-```
+Without an override, the CLI resolves its pinned dependency under:
 
-The application should own none of these things.
-
----
-
-# 16. Host dependency resolution
-
-A normal app does not need to vendor the FoloToy repository.
-
-If no override exists, the CLI resolves its pinned FoloToy dependency under:
-
-```text id="dep-path"
+```text
 .passport/deps/
 ```
 
 Only add:
 
-```toml id="dep-override"
+```toml
 [hostDependencies."folotoy-ai-passport"]
 path = "external/folotoy-ai-passport"
 ```
 
 when the project intentionally owns that checkout.
 
-Do not add a submodule just because a reference template happens to contain one.
+Do not add a submodule merely because an older template or reference project had one.
 
----
-
-# 17. Flashing
-
-Building firmware and flashing firmware are separate actions.
-
-The CLI build does not flash.
-
-After a successful device build, the generated workspace provides:
-
-```sh id="flash"
-.passport/folotoy-ai-passport/flash.sh -p PORT
-```
-
-and:
-
-```sh id="monitor"
-.passport/folotoy-ai-passport/monitor.sh -p PORT
-```
-
-Do not claim physical success until the firmware has actually been flashed and exercised on hardware.
-
----
-
-# 18. Firmware-size discipline
+## 12. Firmware-size discipline
 
 Device build output reports values such as:
 
-```text id="size-report"
+```text
 passport: size: ... bytes
 passport: app partition margin: ... bytes
 ```
 
-Record them.
+Record exact byte counts.
 
-The app partition is:
+Keep these scopes distinct:
 
-```text id="partition"
-0x380000
-= 3,670,016 bytes
-```
-
-Keep these binary concepts distinct:
-
-```text id="binary-types"
+```text
 application partition binary
-sound bank
-full flash / merged image
+sound/resource bank
+merged Full Flash image from 0x0
 ```
 
-Never compare an app binary directly against an 8 MB Full Flash image and conclude one application is 20× smaller.
+Do not compare different binary scopes as if they were the same thing.
 
-When a product includes large PCM resources, expect sound data to dominate firmware size.
+Large PCM resources often dominate firmware size; product logic complexity and firmware bytes are not linearly related.
 
-Code complexity and firmware size are not the same thing.
+## 13. One-shot behavior for Codex
 
----
+When the user gives a supported product idea, do not ask implementation-detail questions such as:
 
-# 19. Optimize for the user's product, not the template
-
-Do not copy architectural complexity from another application unless this product requires it.
-
-A simple product may need only:
-
-```text id="simple-app"
-one App struct
-one Canvas
-three buttons
-monotonic time
-a few drawing primitives
-```
-
-A complex product may legitimately need:
-
-```text id="complex-app"
-multiple product-state modules
-sprite data
-fixed-step simulation
-several screens
-multiple Sound resources
-several Playback handles
-custom bitmap glyphs
-large state machines
-```
-
-Both are normal.
-
-The SDK should not dictate product imagination.
-
----
-
-# 20. One-shot implementation behavior for Codex
-
-When a user gives an idea, do not respond by asking:
-
-```text id="bad-questions"
-What should UP do?
-What color should it be?
-Should it animate at 20 or 30 FPS?
-What should the folder structure be?
+```text
+What should Up do?
+Which frame rate should I use?
 Should I use InputState?
+Should I use Canvas::logical or Canvas::for_display?
+What folder structure should I choose?
 ```
 
-Those are implementation choices.
+Those are implementation decisions.
 
 Choose coherent defaults and build the product.
 
-Prefer questions only for things like:
+Ask only when missing information fundamentally changes the product, when required external content is unavailable, or before a destructive/repository-overwriting action that requires user intent.
 
-```text id="reasonable-questions"
-Which supplied audio file should be used?
-Which of these two fundamentally different product meanings did you intend?
-Do you want me to overwrite an existing repository?
+## 14. Work in this order
+
+```text
+1. Understand the product idea.
+2. Inspect the project and SDK version.
+3. Ensure MoonBit is installed.
+4. Map requirements to current SDK capabilities.
+5. Identify genuine unsupported requirements.
+6. Design product state, screens, gestures, timing, audio/mic, and power behavior.
+7. Implement the portable MoonBit application.
+8. Add assets/sounds only when required.
+9. Add tests.
+10. Run MoonBit checks and tests.
+11. Build and exercise Web.
+12. Run FoloToy doctor.
+13. Build firmware.
+14. Record firmware size and partition margin.
+15. Flash only when requested/available.
+16. Report exactly what was validated.
 ```
 
-Even then, if a safe and useful default exists, prefer making progress.
+Do not start from ESP-IDF, Host glue, or an existing example application's architecture.
 
----
+## 15. Completion evidence
 
-# 21. Work in this order
+Report validation categories separately:
 
-For a new product:
-
-```text id="order"
-1. Understand the product fantasy.
-2. Check required capabilities against the SDK.
-3. Identify genuine unsupported requirements.
-4. Design state/screens/input internally.
-5. Create a minimal downstream MoonBit project.
-6. Implement pure product state.
-7. Implement semantic buttons.
-8. Implement time behavior.
-9. Implement rendering.
-10. Add sounds only if required.
-11. Add tests.
-12. Run MoonBit checks/tests.
-13. Build Web.
-14. Exercise Web behavior.
-15. Run FoloToy doctor.
-16. Build firmware.
-17. Record firmware size and partition margin.
-18. Flash only when requested/available.
-19. Report exactly what was validated.
-```
-
-Do not start from ESP-IDF.
-
-Do not start from Host glue.
-
-Do not start from an existing reference application's architecture.
-
-Start from the user's product.
-
----
-
-# 22. What "done" means
-
-A successful supported request should ideally leave the user with:
-
-```text id="deliverables"
-a standalone MoonBit repository
-passport.toml
-application source
-tests
-Web build
-FoloToy firmware build
-firmware size
-partition margin
-flash command
-short usage instructions
-```
-
-Report validation separately:
-
-```text id="evidence"
+```text
 MoonBit check: PASS / FAIL
 MoonBit tests: PASS / FAIL
 
@@ -1354,29 +754,18 @@ Physical behavior tested: YES / NO
 
 Never replace a missing evidence category with another one.
 
----
+## 16. Public API quick reference
 
-# 23. Public API quick reference
+### Graphics
 
-## Core
+```text
+display_info()
+backlight_level()
+set_backlight()
 
-```moonbit id="ref-core"
-@core.LOGICAL_WIDTH   // 120
-@core.LOGICAL_HEIGHT  // 160
-
-@core.Color::rgb(...)
-Color::to_rgb565(...)
-
-Point
-Size
-Rect
-```
-
-## Graphics
-
-```moonbit id="ref-graphics"
+Canvas::for_display()
 Canvas::logical()
-Canvas::new(...)
+Canvas::new()
 
 clear
 pixel
@@ -1385,21 +774,24 @@ rect
 fill_rect
 sprite
 text
-
 frame_view
 
-SpriteSheet::from_colors(...)
-
-text_width(...)
-text_height(...)
+SpriteSheet::from_colors()
+text_width()
+text_height()
 ```
 
-## Input
+### Input
 
-```moonbit id="ref-input"
+```text
 Button::Up
 Button::Down
 Button::Ok
+
+ButtonEvent::Press
+ButtonEvent::Click
+ButtonEvent::DoubleClick
+ButtonEvent::LongPress
 
 InputState::new()
 press
@@ -1410,51 +802,52 @@ just_released
 advance
 ```
 
-## Application
+### Application
 
-```moonbit id="ref-app"
+```text
 FrameContext {
-  now_us : Int64
-  presentation_lead_us : Int64
+  now_us
+  presentation_lead_us
 }
 
 Application {
   update
   button
+  button_event
   render
   audio_output
 }
-
-AudioOutput {
-  volume : Int
-  muted : Bool
-}
 ```
 
-## Audio
+### Audio
 
-```moonbit id="ref-audio"
-Sound
-
-Playback
-
+```text
 play
 pause
 resume
 stop
 position
+
+capture_start
+capture_status
+capture_read
+capture_stop
+capture_dropped_samples
+CAPTURE_SAMPLE_RATE_HZ
 ```
 
----
+### Power
 
-# 24. Final rule
+```text
+request_sleep
+request_timed_sleep
+wake_reason
+```
+
+## Final rule
 
 The user's idea is the application.
 
-`ai-passport.mbt` is merely the portable hardware/software capability layer used to realize it.
+`ai-passport.mbt` is the portable capability layer used to realize it.
 
-Do not constrain the idea to the examples that already exist.
-
-Do not teach the user to build Forest Walk, Pocket Breather, or any other previous application.
-
-Use the SDK primitives to build **their** product.
+Do not constrain the idea to examples that already exist. Use the SDK primitives to build the user's product.
