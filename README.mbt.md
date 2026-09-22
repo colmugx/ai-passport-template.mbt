@@ -275,7 +275,7 @@ The included Forest Walk application demonstrates:
 - fallback visual timing when playback position is unavailable
 - Host-provided presentation lead without checking Host identity
 
-Its committed scenery targets the full **240×320** Host surface, but the three large parallax layers are stored as **120×160 indexed samples** and presented at **2× nearest-neighbour scale** into the 240×320 Canvas. This keeps the SDK/Host coordinate system full-resolution while reducing retained scenery-index RAM from 230.4 KB to 57.6 KB on the no-PSRAM ESP32-C3. The fairy sprite, HUD and final Canvas remain full-resolution.
+Forest Walk keeps its original **120×160 pixel-art design space** even though the SDK/Host framebuffer is **240×320**. The three parallax layers, fairy and battery HUD are all authored/rendered in that design coordinate system, and each design pixel is presented as one **2×2 nearest-neighbour block** on the final Canvas. The scenery layers therefore retain only 57.6 KB of index RAM (three 120×160 byte maps) on the no-PSRAM ESP32-C3, while the scene preserves its original sprite-to-world proportions instead of mixing low-resolution backgrounds with full-resolution foreground UI.
 
 The source PNGs and repeatable converters live under `assets/forest_walk/` and
 `tools/compile_*.py`. They are local authoring inputs and are intentionally
