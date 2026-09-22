@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  AI_PASSPORT_VERSION: "0.2.0"
+  AI_PASSPORT_VERSION: "0.2.1"
   DEVICE_HOST: "folotoy/ai-passport"
   DEVICE_HOST_ID: "folotoy-ai-passport"
   APP_PARTITION_SIZE: "3670016"
