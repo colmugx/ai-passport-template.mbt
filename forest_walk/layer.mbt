@@ -31,109 +31,55 @@ pub fn foreground_scroll_offset(scroll : Int) -> Int {
 }
 
 ///|
-/// Draws one indexed scenery layer through the SDK Canvas, producing
-/// exactly the framebuffer of the per-pixel formulation:
-///
-///   index = indices[y * width + ping_pong_x(x + scroll_x, width)]
-///   transparent samples leave the canvas unchanged; others write
-///   `palette[index]`
-///
-/// (see `ping_pong_x`, which stays the normative mapping). The cost
-/// reductions are structural only — every destination pixel is written by
-/// the same `Canvas::pixel` call with the same color:
-///
-/// - The horizontal mapping is identical for every row, so the ping-pong
-///   source column is computed ONCE per destination column: the start
-///   column and direction come from `scroll_x` modulo the `2 * width`
-///   period, and the cursor then walks incrementally (no per-pixel
-///   modulo). The `width - 1` and `0` plateaus of the ping-pong ring each
-///   repeat once per period; the two boundary rules reproduce that
-///   exactly, for any integer `scroll_x` (negative included, via the
-///   positive start modulo).
-/// - Traversing column-major keeps that column mapping shared by all
-///   rows; within one layer every destination pixel is written at most
-///   once, so visit order cannot change the framebuffer.
-/// - Transparency is decided once per layer: samples are raw Bytes, so a
-///   reserved index inside the Byte range compares bytewise and exactly,
-///   a reserved index outside it can never match any sample (the layer
-///   draws fully opaque), and fully opaque layers run a loop with no
-///   transparency test at all. Transparent layers convert only the
-///   samples they actually write.
-/// - The inner row walk keeps a running index offset (`+= width` per row)
-///   instead of recomputing `y * width + col`.
-///
-/// Rendering allocates nothing: the layer data is fixed at scene
+/// Compact scenery is presented at an integer scale on the full logical
+/// Canvas. Rendering allocates nothing: the layer data is fixed at scene
 /// construction and every write goes through `Canvas::pixel`.
+fn floor_div(value : Int, divisor : Int) -> Int {
+  let quotient = value / divisor
+  let remainder = value % divisor
+  if remainder < 0 {
+    quotient - 1
+  } else {
+    quotient
+  }
+}
+
+///|
+/// Samples one compact indexed scenery layer into the logical Canvas.
+///
+/// Scenery assets are stored at 120x160 with `scale=2`, while the SDK and
+/// Canvas remain full-resolution 240x320. Scroll offsets stay in logical
+/// pixels; source coordinates are derived with floor division so negative
+/// scrolls preserve the same ping-pong direction at half-resolution.
 fn draw_indexed_layer(
   canvas~ : @graphics.Canvas,
   layer~ : IndexedLayer,
   scroll_x~ : Int,
 ) -> Unit {
-  let screen_width = canvas.width()
-  // Layers cover 320 rows; canvases taller than that would clip silently,
-  // matching the SDK sprite and rectangle behaviour at the edges.
-  let rows = canvas.height().min(layer.height)
-  let layer_width = layer.width
+  let scale = layer.scale
+  let logical_width = layer.width * scale
+  let logical_height = layer.height * scale
+  let columns = canvas.width().min(logical_width)
+  let rows = canvas.height().min(logical_height)
   let palette = layer.palette
   let indices = layer.indices
-  // Start of the ping-pong walk for this layer: where screen x = 0 lands
-  // on the 2 * width ring, and which half of the ring it is on.
-  let period = layer_width * 2
-  let phase = (scroll_x % period + period) % period
-  let mut col = if phase < layer_width { phase } else { period - 1 - phase }
-  let mut dir = if phase < layer_width { 1 } else { -1 }
-  // Reserved transparency index as a comparable Byte. Samples are Bytes,
-  // so a reserved index outside the Byte range matches no sample at all
-  // and the layer draws as fully opaque (the constructor already
-  // guarantees the index sits inside the palette).
-  let transparent : Byte? = match layer.transparent_index {
-    Some(t) if t >= 0 && t <= 255 => Some(t.to_byte())
-    _ => None
-  }
-  match transparent {
-    // Fully opaque layer: every sampled palette entry is written.
-    None =>
-      for x in 0..<screen_width {
-        let mut source = col
-        for y in 0..<rows {
-          canvas.pixel(x~, y~, color=palette[indices[source].to_int()])
-          source += layer_width
-        }
-        // One step right along the ping-pong ring; `width - 1` repeats
-        // once when the upward walk reaches the mirror seam.
-        let next = col + dir
-        if next == layer_width {
-          col = layer_width - 1
-          dir = -1
-        } else if next < 0 {
-          col = 0
-          dir = 1
-        } else {
-          col = next
-        }
+  let transparent = layer.transparent_index
+
+  for x in 0..<columns {
+    let source_x = ping_pong_x(
+      floor_div(x + scroll_x, scale),
+      layer.width,
+    )
+    for y in 0..<rows {
+      let source_y = y / scale
+      let index = indices[source_y * layer.width + source_x].to_int()
+      let skip = match transparent {
+        Some(t) => index == t
+        None => false
       }
-    // Layer with transparency: raw-byte comparison against the reserved
-    // index skips exactly the samples the per-pixel formulation skips.
-    Some(transparent) =>
-      for x in 0..<screen_width {
-        let mut source = col
-        for y in 0..<rows {
-          let index = indices[source]
-          if index != transparent {
-            canvas.pixel(x~, y~, color=palette[index.to_int()])
-          }
-          source += layer_width
-        }
-        let next = col + dir
-        if next == layer_width {
-          col = layer_width - 1
-          dir = -1
-        } else if next < 0 {
-          col = 0
-          dir = 1
-        } else {
-          col = next
-        }
+      if not(skip) {
+        canvas.pixel(x~, y~, color=palette[index])
       }
+    }
   }
 }
