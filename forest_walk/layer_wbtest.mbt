@@ -159,10 +159,7 @@ test "scene renders every layer at its own scroll offset" {
         assert_eq(row[x], foreground.palette[fg_index.to_int()].to_rgb565())
         foreground_verified += 1
       } else {
-        let world_x = ping_pong_x(
-          x / world.scale + scroll,
-          world.width,
-        )
+        let world_x = ping_pong_x(x / world.scale + scroll, world.width)
         let world_y = y / world.scale
         let world_index = world.indices[world_y * world.width + world_x]
         if world_index.to_int() != 0 {
@@ -218,9 +215,7 @@ test "fairy stays fixed in screen space while the world scrolls" {
     let frame_base = 2 * sheet.frame_width * sheet.frame_height
     for sy in 0..<sheet.frame_height {
       for sx in 0..<sheet.frame_width {
-        let index = sheet.indices[
-          frame_base + sy * sheet.frame_width + sx
-        ].to_int()
+        let index = sheet.indices[frame_base + sy * sheet.frame_width + sx].to_int()
         match sheet.palette[index] {
           Some(color) =>
             draw_design_pixel(
@@ -267,8 +262,7 @@ test "fairy stays fixed in screen space while the world scrolls" {
   let (min_x, min_y, max_x, max_y) = fairy_only_bounds(0)
   assert_true(min_x >= FAIRY_X * 2 && max_x < (FAIRY_X + 28) * 2)
   assert_true(
-    min_y >= (FAIRY_BASELINE_Y - 32) * 2 &&
-    max_y < FAIRY_BASELINE_Y * 2,
+    min_y >= (FAIRY_BASELINE_Y - 32) * 2 && max_y < FAIRY_BASELINE_Y * 2,
   )
   assert_true(max_x - min_x > 4 && max_y - min_y > 8)
 }

@@ -32,15 +32,6 @@ pub fn ping_pong_x(Int, Int) -> Int
 // Errors
 
 // Types and methods
-pub(all) struct IndexedSpriteSheet {
-  frame_width : Int
-  frame_height : Int
-  frame_count : Int
-  palette : FixedArray[@core.Color?]
-  indices : FixedArray[Byte]
-}
-pub fn IndexedSpriteSheet::to_sprite_sheet(Self) -> @graphics.SpriteSheet
-
 pub(all) struct IndexedLayer {
   width : Int
   height : Int
@@ -49,6 +40,15 @@ pub(all) struct IndexedLayer {
   indices : FixedArray[Byte]
   transparent_index : Int?
 }
+
+pub(all) struct IndexedSpriteSheet {
+  frame_width : Int
+  frame_height : Int
+  frame_count : Int
+  palette : FixedArray[@core.Color?]
+  indices : FixedArray[Byte]
+}
+pub fn IndexedSpriteSheet::to_sprite_sheet(Self) -> @graphics.SpriteSheet
 
 pub struct State {
   // private fields

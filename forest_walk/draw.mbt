@@ -21,6 +21,7 @@ fn battery_label(battery_percent : Int?) -> String {
   }
 }
 
+///|
 fn design_glyph(ch : Char) -> Int {
   match ch {
     '0' => 0x69996
@@ -78,6 +79,7 @@ fn draw_design_text(
 }
 
 ///|
+
 ///|
 /// Draws the authored three-layer parallax scene, back to front:
 ///
@@ -111,9 +113,7 @@ pub fn State::draw(
   let fairy_y = (FAIRY_BASELINE_Y - sheet.frame_height).max(0)
   for sy in 0..<sheet.frame_height {
     for sx in 0..<sheet.frame_width {
-      let index = sheet.indices[
-        frame_base + sy * sheet.frame_width + sx
-      ].to_int()
+      let index = sheet.indices[frame_base + sy * sheet.frame_width + sx].to_int()
       match sheet.palette[index] {
         Some(color) =>
           draw_design_pixel(canvas, FAIRY_X + sx, fairy_y + sy, color)
