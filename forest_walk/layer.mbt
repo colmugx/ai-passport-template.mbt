@@ -31,45 +31,40 @@ pub fn foreground_scroll_offset(scroll : Int) -> Int {
 }
 
 ///|
-/// Compact scenery is presented at an integer scale on the full logical
-/// Canvas. Rendering allocates nothing: the layer data is fixed at scene
-/// construction and every write goes through `Canvas::pixel`.
-fn floor_div(value : Int, divisor : Int) -> Int {
-  let quotient = value / divisor
-  let remainder = value % divisor
-  if remainder < 0 {
-    quotient - 1
-  } else {
-    quotient
-  }
+/// Forest Walk keeps its authored 120x160 design coordinate system. The
+/// 240x320 SDK Canvas is a 2x presentation surface only.
+fn draw_design_pixel(
+  canvas : @graphics.Canvas,
+  x : Int,
+  y : Int,
+  color : @core.Color,
+) -> Unit {
+  let px = x * 2
+  let py = y * 2
+  canvas.pixel(x=px, y=py, color~)
+  canvas.pixel(x=px + 1, y=py, color~)
+  canvas.pixel(x=px, y=py + 1, color~)
+  canvas.pixel(x=px + 1, y=py + 1, color~)
 }
 
 ///|
-/// Samples one compact indexed scenery layer into the logical Canvas.
-///
-/// Scenery assets are stored at 120x160 with `scale=2`, while the SDK and
-/// Canvas remain full-resolution 240x320. Scroll offsets stay in logical
-/// pixels; source coordinates are derived with floor division so negative
-/// scrolls preserve the same ping-pong direction at half-resolution.
+/// Draws one scenery layer in the original 120x160 design coordinate system.
+/// The final 240x320 SDK Canvas is only a presentation target: every design
+/// pixel expands to one 2x2 block.
 fn draw_indexed_layer(
   canvas~ : @graphics.Canvas,
   layer~ : IndexedLayer,
   scroll_x~ : Int,
 ) -> Unit {
-  let scale = layer.scale
-  let logical_width = layer.width * scale
-  let logical_height = layer.height * scale
-  let columns = canvas.width().min(logical_width)
-  let rows = canvas.height().min(logical_height)
+  let columns = (canvas.width() / 2).min(layer.width)
+  let rows = (canvas.height() / 2).min(layer.height)
   let palette = layer.palette
   let indices = layer.indices
   let transparent = layer.transparent_index
-
   for x in 0..<columns {
-    let source_x = ping_pong_x(floor_div(x + scroll_x, scale), layer.width)
+    let source_x = ping_pong_x(x + scroll_x, layer.width)
     for y in 0..<rows {
-      let source_y = y / scale
-      let index = indices[source_y * layer.width + source_x].to_int()
+      let index = indices[y * layer.width + source_x].to_int()
       let skip = match transparent {
         Some(t) => index == t
         None => false
@@ -77,7 +72,7 @@ fn draw_indexed_layer(
       if skip {
         continue
       }
-      canvas.pixel(x~, y~, color=palette[index])
+      draw_design_pixel(canvas, x, y, palette[index])
     }
   }
 }
