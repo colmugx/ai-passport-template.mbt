@@ -16,6 +16,30 @@
 /// layer stores only a 120x160 index grid (19,200 bytes) plus a small palette;
 /// the renderer presents it at 2x scale onto the 240x320 Canvas. Layers are
 /// built once at scene construction.
+pub(all) struct IndexedSpriteSheet {
+  frame_width : Int
+  frame_height : Int
+  frame_count : Int
+  palette : FixedArray[@core.Color?]
+  indices : FixedArray[Byte]
+}
+
+///|
+pub fn IndexedSpriteSheet::to_sprite_sheet(
+  self : IndexedSpriteSheet,
+) -> @graphics.SpriteSheet {
+  let pixels : Array[@core.Color?] = []
+  for index in self.indices {
+    pixels.push(self.palette[index.to_int()])
+  }
+  @graphics.SpriteSheet::from_colors(
+    frame_width=self.frame_width,
+    frame_height=self.frame_height,
+    pixels~,
+  )
+}
+
+///|
 pub(all) struct IndexedLayer {
   width : Int
   height : Int
@@ -94,7 +118,7 @@ fn indexed_layer(
 // Do not edit manually.
 
 ///|
-pub fn build_fairy_walk_right_sheet() -> @graphics.SpriteSheet {
+pub fn build_fairy_walk_right_sheet() -> IndexedSpriteSheet {
   let palette : Array[@core.Color?] = [
     None,
     Some(@core.Color::rgb(r=145, g=67, b=119)),
@@ -179,7 +203,9 @@ pub fn build_fairy_walk_right_sheet() -> @graphics.SpriteSheet {
     "0000000347CDDC74C7C7CC7500000000000127D6C7DDDC67661000000000000001351322CC1350000000",
     "0000000000000005C7300000000000000000000000003321000000000000000000000000000000000000",
   ]
-  let pixels : Array[@core.Color?] = []
+  let pixel_count = 6 * 28 * 32
+  let indices : FixedArray[Byte] = FixedArray::make(pixel_count, 0)
+  let mut count = 0
   for block in encoded {
     for digit in block {
       let code = digit.to_int()
@@ -190,13 +216,23 @@ pub fn build_fairy_walk_right_sheet() -> @graphics.SpriteSheet {
       } else {
         abort("invalid compiled fairy palette index")
       }
-      pixels.push(palette[nibble])
+      if count >= pixel_count {
+        abort("compiled fairy sprite has too many pixels")
+      }
+      indices[count] = nibble.to_byte()
+      count += 1
     }
   }
-  if pixels.length() != 6 * 28 * 32 {
+  if count != pixel_count {
     abort("compiled fairy sprite has an invalid pixel count")
   }
-  @graphics.SpriteSheet::from_colors(frame_width=28, frame_height=32, pixels~)
+  {
+    frame_width: 28,
+    frame_height: 32,
+    frame_count: 6,
+    palette: FixedArray::from_array(palette),
+    indices,
+  }
 }
 
 // Generated from assets/forest_walk/forest_far.png
