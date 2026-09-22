@@ -150,7 +150,7 @@ test "scene renders every layer at its own scroll offset" {
     assert_eq(canvas.frame_view().copy_rgb565_row(y~, out=row), canvas.width())
     for x in 60..<(canvas.width() - 2) {
       let fg_x = ping_pong_x(
-        floor_div(x + foreground_offset, foreground.scale),
+        x / foreground.scale + foreground_offset,
         foreground.width,
       )
       let fg_y = y / foreground.scale
@@ -160,7 +160,7 @@ test "scene renders every layer at its own scroll offset" {
         foreground_verified += 1
       } else {
         let world_x = ping_pong_x(
-          floor_div(x + scroll, world.scale),
+          x / world.scale + scroll,
           world.width,
         )
         let world_y = y / world.scale
@@ -170,7 +170,7 @@ test "scene renders every layer at its own scroll offset" {
           world_verified += 1
         } else {
           let far_x = ping_pong_x(
-            floor_div(x + far_scroll_offset(scroll), far.scale),
+            x / far.scale + far_scroll_offset(scroll),
             far.width,
           )
           let far_y = y / far.scale
@@ -215,7 +215,24 @@ test "fairy stays fixed in screen space while the world scrolls" {
       scroll_x=scroll,
     )
     let sheet = build_fairy_walk_right_sheet()
-    canvas.sprite(sheet~, frame=2, x=FAIRY_X, y=FAIRY_BASELINE_Y - 32)
+    let frame_base = 2 * sheet.frame_width * sheet.frame_height
+    for sy in 0..<sheet.frame_height {
+      for sx in 0..<sheet.frame_width {
+        let index = sheet.indices[
+          frame_base + sy * sheet.frame_width + sx
+        ].to_int()
+        match sheet.palette[index] {
+          Some(color) =>
+            draw_design_pixel(
+              canvas,
+              FAIRY_X + sx,
+              FAIRY_BASELINE_Y - 32 + sy,
+              color,
+            )
+          None => ()
+        }
+      }
+    }
     let mut min_x = canvas.width()
     let mut max_x = -1
     let mut min_y = canvas.height()
@@ -248,8 +265,11 @@ test "fairy stays fixed in screen space while the world scrolls" {
   // 96 world pixels of travel displace every layer but not the fairy.
   assert_eq(fairy_only_bounds(0), fairy_only_bounds(96))
   let (min_x, min_y, max_x, max_y) = fairy_only_bounds(0)
-  assert_true(min_x >= FAIRY_X && max_x < FAIRY_X + 28)
-  assert_true(min_y >= FAIRY_BASELINE_Y - 32 && max_y < FAIRY_BASELINE_Y)
+  assert_true(min_x >= FAIRY_X * 2 && max_x < (FAIRY_X + 28) * 2)
+  assert_true(
+    min_y >= (FAIRY_BASELINE_Y - 32) * 2 &&
+    max_y < FAIRY_BASELINE_Y * 2,
+  )
   assert_true(max_x - min_x > 4 && max_y - min_y > 8)
 }
 
