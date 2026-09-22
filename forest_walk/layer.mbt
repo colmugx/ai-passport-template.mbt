@@ -70,7 +70,7 @@ fn draw_indexed_layer(
   scroll_x~ : Int,
 ) -> Unit {
   let screen_width = canvas.width()
-  // Layers cover 160 rows; canvases taller than that would clip silently,
+  // Layers cover 320 rows; canvases taller than that would clip silently,
   // matching the SDK sprite and rectangle behaviour at the edges.
   let rows = canvas.height().min(layer.height)
   let layer_width = layer.width

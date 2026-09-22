@@ -135,21 +135,21 @@ test "layer renderer is framebuffer-exact vs the reference across the scroll mat
     assert_layer_equivalence(
       layer=state.far_layer,
       scroll_x=scroll,
-      width=120,
-      height=160,
+      width=240,
+      height=320,
     )
     // The transparent layers: mirrored tiles and skipped samples.
     assert_layer_equivalence(
       layer=state.world_layer,
       scroll_x=scroll,
-      width=120,
-      height=160,
+      width=240,
+      height=320,
     )
     assert_layer_equivalence(
       layer=state.foreground_layer,
       scroll_x=scroll,
-      width=120,
-      height=160,
+      width=240,
+      height=320,
     )
     // Clipped canvas: exercises the row/width bounds on both paths.
     assert_layer_equivalence(
@@ -173,8 +173,8 @@ test "State::draw is framebuffer-exact vs the reference for poses and battery" {
   for e in pose_eighths {
     let state = State::new().update(musical_eighths=e)
     for battery in batteries {
-      let optimized = @graphics.Canvas::new(width=120, height=160)
-      let reference = @graphics.Canvas::new(width=120, height=160)
+      let optimized = @graphics.Canvas::new(width=240, height=320)
+      let reference = @graphics.Canvas::new(width=240, height=320)
       state.draw(canvas=optimized, battery_percent=battery)
       draw_state_reference(state, canvas=reference, battery_percent=battery)
       assert_true(
@@ -194,8 +194,8 @@ test "walking states draw framebuffer-exact vs the reference" {
   let mut next = 0
   for k in 0..<855 {
     if k == checkpoints[next] {
-      let optimized = @graphics.Canvas::new(width=120, height=160)
-      let reference = @graphics.Canvas::new(width=120, height=160)
+      let optimized = @graphics.Canvas::new(width=240, height=320)
+      let reference = @graphics.Canvas::new(width=240, height=320)
       state.draw(canvas=optimized, battery_percent=Some(76))
       draw_state_reference(state, canvas=reference, battery_percent=Some(76))
       assert_true(

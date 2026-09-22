@@ -25,9 +25,11 @@ pub struct App {
 }
 
 ///|
-/// Creates the application with a logical 120x160 canvas and a fresh Forest
-/// Walk scene, at the startup volume, audible, clock at zero and no time
-/// baseline yet (the first `advance` latches it).
+/// Creates the application with the SDK's current full 240x320 canvas and a
+/// fresh Forest Walk scene, at the startup volume, audible, clock at zero and
+/// no time baseline yet (the first `advance` latches it). The template keeps
+/// this constructor Host-independent; products that initialize after Host
+/// boot can use `Canvas::for_display()` for a different active panel.
 pub fn App::new() -> App {
   {
     canvas: @graphics.Canvas::logical(),

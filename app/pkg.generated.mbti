@@ -33,6 +33,7 @@ pub struct App {
 pub fn App::advance(Self, Int64, playback_position_us? : Int64, presentation_lead_us? : Int64) -> Unit
 pub fn App::audio_output(Self) -> @application.AudioOutput?
 pub fn App::button(Self, @input.Button, Bool) -> Unit
+pub fn App::button_event(Self, @input.Button, @input.ButtonEvent) -> Unit
 pub fn App::draw(Self, battery_percent~ : Int?) -> Unit
 pub fn App::frame(Self) -> Int
 pub fn App::frame_view(Self) -> @graphics.FrameView

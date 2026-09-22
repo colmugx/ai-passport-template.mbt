@@ -4,9 +4,9 @@ const FAIRY_X : Int = 26
 
 ///|
 /// Ground line under the fairy's feet, chosen on the forest_world road
-/// surface (the road's fully opaque rows are 114..129 in the generated
-/// layer, so 126 puts her feet on the road's lower half).
-const FAIRY_BASELINE_Y : Int = 126
+/// surface (the 240x320 generated layer places the road around rows
+/// 228..258, so 252 puts her feet on its lower half).
+const FAIRY_BASELINE_Y : Int = 252
 
 ///|
 fn battery_label(battery_percent : Int?) -> String {
